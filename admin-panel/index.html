@@ -1,0 +1,1756 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>SavosBot Club - Админ-панель</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            background: linear-gradient(135deg, #1a1a1a 0%, #2d1b1b 100%);
+            color: #ffffff;
+            min-height: 100vh;
+        }
+
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 20px;
+        }
+
+        .header {
+            text-align: center;
+            margin-bottom: 30px;
+            padding: 20px 0;
+            background: linear-gradient(90deg, #dc2626, #ef4444);
+            border-radius: 15px;
+            box-shadow: 0 8px 32px rgba(220, 38, 38, 0.3);
+        }
+
+        .header h1 {
+            font-size: 32px;
+            font-weight: 700;
+            margin-bottom: 5px;
+            text-shadow: 2px 2px 4px rgba(0, 0, 0, 0.3);
+        }
+
+        .header p {
+            font-size: 18px;
+            opacity: 0.9;
+        }
+
+        .nav-tabs {
+            display: flex;
+            background: rgba(255, 255, 255, 0.1);
+            border-radius: 12px;
+            padding: 5px;
+            margin-bottom: 25px;
+            backdrop-filter: blur(10px);
+            flex-wrap: wrap;
+        }
+
+        .nav-tab {
+            flex: 1;
+            padding: 15px 10px;
+            text-align: center;
+            border-radius: 8px;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            font-weight: 500;
+            font-size: 14px;
+            min-width: 120px;
+        }
+
+        .nav-tab.active {
+            background: linear-gradient(90deg, #dc2626, #ef4444);
+            color: white;
+            box-shadow: 0 4px 15px rgba(220, 38, 38, 0.4);
+        }
+
+        .nav-tab:not(.active):hover {
+            background: rgba(255, 255, 255, 0.1);
+        }
+
+        .content {
+            min-height: 600px;
+        }
+
+        .tab-content {
+            display: none;
+            animation: fadeIn 0.3s ease;
+        }
+
+        .tab-content.active {
+            display: block;
+        }
+
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(10px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+
+        .card {
+            background: rgba(255, 255, 255, 0.1);
+            border-radius: 15px;
+            padding: 25px;
+            margin-bottom: 25px;
+            backdrop-filter: blur(10px);
+            border: 1px solid rgba(255, 255, 255, 0.2);
+            transition: transform 0.3s ease, box-shadow 0.3s ease;
+        }
+
+        .card:hover {
+            transform: translateY(-5px);
+            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.3);
+        }
+
+        .card h3 {
+            color: #ef4444;
+            margin-bottom: 20px;
+            font-size: 20px;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .btn {
+            background: linear-gradient(90deg, #dc2626, #ef4444);
+            color: white;
+            border: none;
+            padding: 12px 24px;
+            border-radius: 10px;
+            cursor: pointer;
+            font-weight: 600;
+            transition: all 0.3s ease;
+            box-shadow: 0 4px 15px rgba(220, 38, 38, 0.3);
+            font-size: 14px;
+        }
+
+        .btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 6px 20px rgba(220, 38, 38, 0.4);
+        }
+
+        .btn:active {
+            transform: translateY(0);
+        }
+
+        .btn-secondary {
+            background: rgba(255, 255, 255, 0.2);
+            color: white;
+        }
+
+        .btn-secondary:hover {
+            background: rgba(255, 255, 255, 0.3);
+        }
+
+        .btn-danger {
+            background: linear-gradient(90deg, #dc2626, #b91c1c);
+        }
+
+        .btn-success {
+            background: linear-gradient(90deg, #22c55e, #16a34a);
+        }
+
+        .form-group {
+            margin-bottom: 20px;
+        }
+
+        .form-group label {
+            display: block;
+            margin-bottom: 8px;
+            font-weight: 600;
+            color: rgba(255, 255, 255, 0.9);
+        }
+
+        .form-group input,
+        .form-group textarea,
+        .form-group select {
+            width: 100%;
+            padding: 12px 15px;
+            border: 1px solid rgba(255, 255, 255, 0.3);
+            border-radius: 8px;
+            background: rgba(255, 255, 255, 0.1);
+            color: white;
+            font-size: 14px;
+            transition: border-color 0.3s ease;
+        }
+
+        .form-group input:focus,
+        .form-group textarea:focus,
+        .form-group select:focus {
+            outline: none;
+            border-color: #ef4444;
+        }
+
+        .form-group input::placeholder,
+        .form-group textarea::placeholder {
+            color: rgba(255, 255, 255, 0.5);
+        }
+
+        .table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-top: 20px;
+        }
+
+        .table th,
+        .table td {
+            padding: 12px;
+            text-align: left;
+            border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+        }
+
+        .table th {
+            background: rgba(255, 255, 255, 0.1);
+            font-weight: 600;
+            color: #ef4444;
+        }
+
+        .table tr:hover {
+            background: rgba(255, 255, 255, 0.05);
+        }
+
+        .status-badge {
+            display: inline-block;
+            padding: 4px 12px;
+            border-radius: 20px;
+            font-size: 12px;
+            font-weight: 600;
+            text-transform: uppercase;
+        }
+
+        .status-new { background: #3b82f6; color: white; }
+        .status-taken { background: #f59e0b; color: white; }
+        .status-completed { background: #22c55e; color: white; }
+        .status-resident { background: linear-gradient(90deg, #dc2626, #ef4444); color: white; }
+        .status-guest { background: rgba(255, 255, 255, 0.2); color: white; }
+
+        .stats-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+            gap: 20px;
+            margin-bottom: 30px;
+        }
+
+        .stat-card {
+            background: rgba(255, 255, 255, 0.1);
+            border-radius: 15px;
+            padding: 20px;
+            text-align: center;
+            backdrop-filter: blur(10px);
+            border: 1px solid rgba(255, 255, 255, 0.2);
+        }
+
+        .stat-number {
+            font-size: 32px;
+            font-weight: 700;
+            color: #ef4444;
+            margin-bottom: 10px;
+        }
+
+        .stat-label {
+            color: rgba(255, 255, 255, 0.8);
+            font-size: 14px;
+        }
+
+        .loading {
+            text-align: center;
+            padding: 40px;
+            color: #ef4444;
+        }
+
+        .error {
+            background: rgba(239, 68, 68, 0.2);
+            border: 1px solid #ef4444;
+            color: #ef4444;
+            padding: 15px;
+            border-radius: 10px;
+            margin: 10px 0;
+        }
+
+        .success {
+            background: rgba(34, 197, 94, 0.2);
+            border: 1px solid #22c55e;
+            color: #22c55e;
+            padding: 15px;
+            border-radius: 10px;
+            margin: 10px 0;
+        }
+
+        .modal {
+            display: none;
+            position: fixed;
+            z-index: 1000;
+            left: 0;
+            top: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0, 0, 0, 0.8);
+            backdrop-filter: blur(5px);
+        }
+
+        .modal-content {
+            background: linear-gradient(135deg, #1a1a1a 0%, #2d1b1b 100%);
+            margin: 5% auto;
+            padding: 30px;
+            border-radius: 15px;
+            width: 90%;
+            max-width: 600px;
+            border: 1px solid rgba(255, 255, 255, 0.2);
+        }
+
+        .modal-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 20px;
+        }
+
+        .modal-header h2 {
+            color: #ef4444;
+        }
+
+        .close {
+            color: rgba(255, 255, 255, 0.7);
+            font-size: 28px;
+            font-weight: bold;
+            cursor: pointer;
+        }
+
+        .close:hover {
+            color: #ef4444;
+        }
+
+        .form-row {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 20px;
+        }
+
+        @media (max-width: 768px) {
+            .nav-tabs {
+                flex-direction: column;
+            }
+            
+            .nav-tab {
+                margin-bottom: 5px;
+            }
+            
+            .stats-grid {
+                grid-template-columns: 1fr;
+            }
+            
+            .form-row {
+                grid-template-columns: 1fr;
+            }
+            
+            .table {
+                font-size: 12px;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>🏛️ SavosBot Club</h1>
+            <p>Панель администратора</p>
+            <div id="user-role-indicator" style="margin-top: 10px; font-size: 14px; opacity: 0.8;"></div>
+            <div style="position: absolute; top: 20px; right: 20px;">
+                <button class="btn btn-secondary" onclick="testSwitch()" style="font-size: 12px; padding: 8px 12px; margin-right: 10px;">
+                    🧪 Тест
+                </button>
+                <button class="btn btn-secondary" onclick="logout()" style="font-size: 12px; padding: 8px 12px;">
+                    🚪 Выйти
+                </button>
+            </div>
+        </div>
+
+        <div class="nav-tabs">
+            <div class="nav-tab active" data-tab="dashboard" onclick="switchTab('dashboard')">📊 Дашборд</div>
+            <div class="nav-tab" data-tab="users" onclick="switchTab('users')">👥 Пользователи</div>
+            <div class="nav-tab" data-tab="events" onclick="switchTab('events')">📅 Мероприятия</div>
+            <div class="nav-tab" data-tab="drinks" onclick="switchTab('drinks')">🍸 Напитки</div>
+            <div class="nav-tab" data-tab="orders" onclick="switchTab('orders')">📋 Заказы</div>
+            <div class="nav-tab" data-tab="contests" onclick="switchTab('contests')">🏆 Конкурсы</div>
+            <div class="nav-tab" data-tab="waiters" onclick="switchTab('waiters')">🍽️ Официанты</div>
+            <div class="nav-tab" data-tab="super-admin" onclick="switchTab('super-admin')">🔐 Супер-админ</div>
+        </div>
+
+        <div class="content">
+            <!-- Дашборд -->
+            <div id="dashboard" class="tab-content active">
+                <div class="stats-grid" id="stats-grid">
+                    <div class="loading">Загрузка статистики...</div>
+                </div>
+            </div>
+
+            <!-- Пользователи -->
+            <div id="users" class="tab-content">
+                <div class="card">
+                    <h3>👥 Управление пользователями</h3>
+                    <div id="users-list">
+                        <div class="loading">Загрузка пользователей...</div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Мероприятия -->
+            <div id="events" class="tab-content">
+                <div class="card">
+                    <h3>📅 Управление мероприятиями</h3>
+                    <button class="btn" onclick="openModal('eventModal')">➕ Добавить мероприятие</button>
+                    <div id="events-list">
+                        <div class="loading">Загрузка мероприятий...</div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Напитки -->
+            <div id="drinks" class="tab-content">
+                <div class="card">
+                    <h3>🍸 Управление меню бара</h3>
+                    <button class="btn" onclick="openModal('drinkModal')">➕ Добавить напиток</button>
+                    <div id="drinks-list">
+                        <div class="loading">Загрузка напитков...</div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Заказы -->
+            <div id="orders" class="tab-content">
+                <div class="card">
+                    <h3>📋 Управление заказами</h3>
+                    <div id="orders-list">
+                        <div class="loading">Загрузка заказов...</div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Конкурсы -->
+            <div id="contests" class="tab-content">
+                <div class="card">
+                    <h3>🏆 Управление конкурсами</h3>
+                    <button class="btn" onclick="openModal('contestModal')">➕ Добавить конкурс</button>
+                    <div id="contests-list">
+                        <div class="loading">Загрузка конкурсов...</div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Официанты -->
+            <div id="waiters" class="tab-content">
+                <div class="card">
+                    <h3>🍽️ Управление официантами</h3>
+                    <div id="waiters-list">
+                        <div class="loading">Загрузка официантов...</div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Супер-админ -->
+            <div id="super-admin" class="tab-content">
+                <div class="card">
+                    <h3>🔐 Супер-админ панель</h3>
+                    <p style="color: rgba(255,255,255,0.8); margin-bottom: 20px;">
+                        Расширенные функции управления системой
+                    </p>
+                    
+                    <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 20px;">
+                        <!-- Настройки системы -->
+                        <div class="card" style="margin-bottom: 0;">
+                            <h4 style="color: #ef4444; margin-bottom: 15px;">⚙️ Настройки системы</h4>
+                            <div id="system-settings">
+                                <div class="loading">Загрузка настроек...</div>
+                            </div>
+                            <button class="btn btn-secondary" onclick="openModal('settingsModal')" style="margin-top: 15px;">
+                                Редактировать настройки
+                            </button>
+                        </div>
+
+                        <!-- Управление доступом -->
+                        <div class="card" style="margin-bottom: 0;">
+                            <h4 style="color: #ef4444; margin-bottom: 15px;">🔒 Управление доступом</h4>
+                            <div style="margin-bottom: 15px;">
+                                <label style="display: block; margin-bottom: 8px;">Блокировка разделов для пользователей:</label>
+                                <div style="display: flex; gap: 10px; flex-wrap: wrap;">
+                                    <button class="btn btn-secondary" onclick="toggleSectionAccess('bar')">
+                                        🍸 Бар
+                                    </button>
+                                    <button class="btn btn-secondary" onclick="toggleSectionAccess('events')">
+                                        📅 Афиша
+                                    </button>
+                                    <button class="btn btn-secondary" onclick="toggleSectionAccess('contests')">
+                                        🏆 Конкурсы
+                                    </button>
+                                </div>
+                            </div>
+                            <div id="section-status">
+                                <div class="loading">Загрузка статуса...</div>
+                            </div>
+                        </div>
+
+                        <!-- Системные операции -->
+                        <div class="card" style="margin-bottom: 0;">
+                            <h4 style="color: #ef4444; margin-bottom: 15px;">🛠️ Системные операции</h4>
+                            <div style="display: flex; flex-direction: column; gap: 10px;">
+                                <button class="btn btn-secondary" onclick="viewSystemLogs()">
+                                    📋 Просмотр логов
+                                </button>
+                                <button class="btn btn-secondary" onclick="createBackup()">
+                                    💾 Создать резервную копию
+                                </button>
+                                <button class="btn btn-secondary" onclick="clearOldData()">
+                                    🗑️ Очистить старые данные
+                                </button>
+                                <button class="btn btn-danger" onclick="resetSystem()">
+                                    ⚠️ Сброс системы
+                                </button>
+                            </div>
+                        </div>
+
+                        <!-- Статистика системы -->
+                        <div class="card" style="margin-bottom: 0;">
+                            <h4 style="color: #ef4444; margin-bottom: 15px;">📊 Расширенная статистика</h4>
+                            <div id="advanced-stats">
+                                <div class="loading">Загрузка статистики...</div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Модальные окна -->
+    <!-- Модальное окно для мероприятий -->
+    <div id="eventModal" class="modal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h2>Добавить мероприятие</h2>
+                <span class="close" onclick="closeModal('eventModal')">&times;</span>
+            </div>
+            <form id="eventForm">
+                <div class="form-group">
+                    <label>Название мероприятия</label>
+                    <input type="text" id="eventTitle" required>
+                </div>
+                <div class="form-group">
+                    <label>Описание</label>
+                    <textarea id="eventDescription" rows="3"></textarea>
+                </div>
+                <div class="form-row">
+                    <div class="form-group">
+                        <label>Дата и время</label>
+                        <input type="datetime-local" id="eventDate" required>
+                    </div>
+                    <div class="form-group">
+                        <label>Цена (₽)</label>
+                        <input type="number" id="eventPrice" min="0" step="0.01">
+                    </div>
+                </div>
+                <div class="form-group">
+                    <label>URL изображения</label>
+                    <input type="url" id="eventImage">
+                </div>
+                <button type="submit" class="btn">Создать мероприятие</button>
+            </form>
+        </div>
+    </div>
+
+    <!-- Модальное окно для напитков -->
+    <div id="drinkModal" class="modal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h2>Добавить напиток</h2>
+                <span class="close" onclick="closeModal('drinkModal')">&times;</span>
+            </div>
+            <form id="drinkForm">
+                <div class="form-group">
+                    <label>Название напитка</label>
+                    <input type="text" id="drinkName" required>
+                </div>
+                <div class="form-group">
+                    <label>Описание</label>
+                    <textarea id="drinkDescription" rows="3"></textarea>
+                </div>
+                <div class="form-row">
+                    <div class="form-group">
+                        <label>Цена (₽)</label>
+                        <input type="number" id="drinkPrice" min="0" step="0.01" required>
+                    </div>
+                    <div class="form-group">
+                        <label>Категория</label>
+                        <select id="drinkCategory">
+                            <option value="Коктейли">Коктейли</option>
+                            <option value="Пиво">Пиво</option>
+                            <option value="Вино">Вино</option>
+                            <option value="Крепкие напитки">Крепкие напитки</option>
+                            <option value="Горячие напитки">Горячие напитки</option>
+                            <option value="Безалкогольные">Безалкогольные</option>
+                        </select>
+                    </div>
+                </div>
+                <div class="form-group">
+                    <label>URL изображения</label>
+                    <input type="url" id="drinkImage">
+                </div>
+                <button type="submit" class="btn">Добавить напиток</button>
+            </form>
+        </div>
+    </div>
+
+    <!-- Модальное окно для конкурсов -->
+    <div id="contestModal" class="modal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h2>Добавить конкурс</h2>
+                <span class="close" onclick="closeModal('contestModal')">&times;</span>
+            </div>
+            <form id="contestForm">
+                <div class="form-group">
+                    <label>Название конкурса</label>
+                    <input type="text" id="contestTitle" required>
+                </div>
+                <div class="form-group">
+                    <label>Описание</label>
+                    <textarea id="contestDescription" rows="3"></textarea>
+                </div>
+                <div class="form-row">
+                    <div class="form-group">
+                        <label>Дата начала</label>
+                        <input type="datetime-local" id="contestStartDate" required>
+                    </div>
+                    <div class="form-group">
+                        <label>Дата окончания</label>
+                        <input type="datetime-local" id="contestEndDate" required>
+                    </div>
+                </div>
+                <div class="form-group">
+                    <label>Приз</label>
+                    <input type="text" id="contestPrize">
+                </div>
+                <div class="form-group">
+                    <label>URL изображения</label>
+                    <input type="url" id="contestImage">
+                </div>
+                <button type="submit" class="btn">Создать конкурс</button>
+            </form>
+        </div>
+    </div>
+
+    <!-- Модальное окно для настроек системы -->
+    <div id="settingsModal" class="modal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h2>Настройки системы</h2>
+                <span class="close" onclick="closeModal('settingsModal')">&times;</span>
+            </div>
+            <form id="settingsForm">
+                <div class="form-group">
+                    <label>Название клуба</label>
+                    <input type="text" id="clubName" required>
+                </div>
+                <div class="form-group">
+                    <label>Приветственное сообщение</label>
+                    <textarea id="welcomeMessage" rows="3" required></textarea>
+                </div>
+                <div class="form-group">
+                    <label>Преимущества резидентов</label>
+                    <textarea id="residentBenefits" rows="3" required></textarea>
+                </div>
+                <div class="form-group">
+                    <label>Сообщение о блокировке разделов</label>
+                    <input type="text" id="blockedMessage" value="Скоро вы узнаете, что будет">
+                </div>
+                <button type="submit" class="btn">Сохранить настройки</button>
+            </form>
+        </div>
+    </div>
+
+    <script>
+        // Глобальные переменные
+        let authToken = null;
+        let currentUser = null;
+
+        // Простые функции для тестирования
+        function testSwitch() {
+            console.log('Тестовая функция вызвана');
+            alert('JavaScript работает!');
+        }
+
+        function switchTab(tabName) {
+            console.log('Переключение на вкладку:', tabName);
+            
+            // Убираем активный класс со всех вкладок и контента
+            document.querySelectorAll('.nav-tab').forEach(tab => {
+                tab.classList.remove('active');
+                console.log('Убран активный класс с вкладки:', tab.dataset.tab);
+            });
+            
+            document.querySelectorAll('.tab-content').forEach(content => {
+                content.classList.remove('active');
+                console.log('Убран активный класс с контента:', content.id);
+            });
+            
+            // Активируем выбранную вкладку и контент
+            const activeTab = document.querySelector(`[data-tab="${tabName}"]`);
+            const activeContent = document.getElementById(tabName);
+            
+            if (activeTab) {
+                activeTab.classList.add('active');
+                console.log('Добавлен активный класс на вкладку:', tabName);
+            } else {
+                console.error('Вкладка не найдена:', tabName);
+            }
+            
+            if (activeContent) {
+                activeContent.classList.add('active');
+                console.log('Добавлен активный класс на контент:', tabName);
+            } else {
+                console.error('Контент не найден:', tabName);
+            }
+        }
+
+        function logout() {
+            console.log('Функция logout вызвана');
+            const confirmed = confirm('Вы уверены, что хотите выйти?');
+            if (confirmed) {
+                console.log('Пользователь подтвердил выход');
+                localStorage.removeItem('adminToken');
+                localStorage.removeItem('userRole');
+                console.log('Данные удалены из localStorage');
+                window.location.href = '/';
+                console.log('Перенаправление на главную страницу');
+            } else {
+                console.log('Пользователь отменил выход');
+            }
+        }
+
+        // Делаем функции глобальными
+        window.testSwitch = testSwitch;
+        window.switchTab = switchTab;
+        window.logout = logout;
+
+        // Инициализация админ-панели
+        async function initAdmin() {
+            // Проверяем авторизацию
+            authToken = localStorage.getItem('adminToken');
+            const userRole = localStorage.getItem('userRole');
+            
+            if (!authToken || !userRole) {
+                // Если нет авторизации, перенаправляем на страницу входа
+                window.location.href = '/';
+                return;
+            }
+
+            // Загружаем данные
+            await loadStats();
+            await loadUsers();
+            await loadEvents();
+            await loadDrinks();
+            await loadOrders();
+            await loadContests();
+            await loadWaiters();
+            await loadSuperAdminData();
+            
+            // Проверяем роль пользователя и скрываем супер-админку для обычных админов
+            const userRole = localStorage.getItem('userRole');
+            const roleIndicator = document.getElementById('user-role-indicator');
+            
+            if (userRole === 'super-admin') {
+                roleIndicator.innerHTML = '🔐 <strong>Супер-администратор</strong> - Полный доступ ко всем функциям';
+                roleIndicator.style.color = '#ef4444';
+            } else {
+                roleIndicator.innerHTML = '👤 <strong>Администратор</strong> - Стандартные права доступа';
+                roleIndicator.style.color = 'rgba(255,255,255,0.8)';
+                
+                const superAdminTab = document.querySelector('[data-tab="super-admin"]');
+                if (superAdminTab) {
+                    superAdminTab.style.display = 'none';
+                }
+            }
+        }
+
+        // Загрузка статистики
+        async function loadStats() {
+            try {
+                // Мок-данные для демонстрации
+                const mockStats = {
+                    users: {
+                        total: 156,
+                        residents: 23,
+                        waiters: 8
+                    },
+                    orders: {
+                        total: 342,
+                        active: 12,
+                        revenue: 125430
+                    },
+                    content: {
+                        events: 5,
+                        contests: 3
+                    }
+                };
+                
+                const statsGrid = document.getElementById('stats-grid');
+                statsGrid.innerHTML = `
+                    <div class="stat-card">
+                        <div class="stat-number">${mockStats.users.total}</div>
+                        <div class="stat-label">Всего пользователей</div>
+                    </div>
+                    <div class="stat-card">
+                        <div class="stat-number">${mockStats.users.residents}</div>
+                        <div class="stat-label">Резидентов</div>
+                    </div>
+                    <div class="stat-card">
+                        <div class="stat-number">${mockStats.users.waiters}</div>
+                        <div class="stat-label">Официантов</div>
+                    </div>
+                    <div class="stat-card">
+                        <div class="stat-number">${mockStats.orders.total}</div>
+                        <div class="stat-label">Всего заказов</div>
+                    </div>
+                    <div class="stat-card">
+                        <div class="stat-number">${mockStats.orders.active}</div>
+                        <div class="stat-label">Активных заказов</div>
+                    </div>
+                    <div class="stat-card">
+                        <div class="stat-number">${mockStats.orders.revenue} ₽</div>
+                        <div class="stat-label">Общая выручка</div>
+                    </div>
+                `;
+            } catch (error) {
+                console.error('Ошибка загрузки статистики:', error);
+                document.getElementById('stats-grid').innerHTML = '<div class="error">Ошибка загрузки статистики</div>';
+            }
+        }
+
+        // Загрузка пользователей
+        async function loadUsers() {
+            try {
+                // Мок-данные для демонстрации
+                const mockUsers = [
+                    {
+                        id: 1,
+                        first_name: 'Александр',
+                        last_name: 'Петров',
+                        username: 'alex_petrov',
+                        is_resident: 1,
+                        is_waiter: 0,
+                        is_admin: 0,
+                        created_at: '2024-10-15T10:30:00Z'
+                    },
+                    {
+                        id: 2,
+                        first_name: 'Мария',
+                        last_name: 'Иванова',
+                        username: 'maria_ivanova',
+                        is_resident: 0,
+                        is_waiter: 1,
+                        is_admin: 0,
+                        created_at: '2024-10-20T14:15:00Z'
+                    },
+                    {
+                        id: 3,
+                        first_name: 'Дмитрий',
+                        last_name: 'Сидоров',
+                        username: 'dmitry_sidorov',
+                        is_resident: 1,
+                        is_waiter: 0,
+                        is_admin: 1,
+                        created_at: '2024-10-10T09:45:00Z'
+                    },
+                    {
+                        id: 4,
+                        first_name: 'Елена',
+                        last_name: 'Козлова',
+                        username: 'elena_kozlova',
+                        is_resident: 0,
+                        is_waiter: 0,
+                        is_admin: 0,
+                        created_at: '2024-10-25T16:20:00Z'
+                    },
+                    {
+                        id: 5,
+                        first_name: 'Супер',
+                        last_name: 'Администратор',
+                        username: 'superadmin',
+                        is_resident: 1,
+                        is_waiter: 0,
+                        is_admin: 1,
+                        is_super_admin: 1,
+                        created_at: '2024-10-01T00:00:00Z'
+                    }
+                ];
+                
+                const usersList = document.getElementById('users-list');
+                usersList.innerHTML = `
+                    <table class="table">
+                        <thead>
+                            <tr>
+                                <th>ID</th>
+                                <th>Имя</th>
+                                <th>Username</th>
+                                <th>Статус</th>
+                                <th>Дата регистрации</th>
+                                <th>Действия</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            ${mockUsers.map(user => `
+                                <tr>
+                                    <td>${user.id}</td>
+                                    <td>${user.first_name} ${user.last_name || ''}</td>
+                                    <td>@${user.username || 'не указан'}</td>
+                                    <td>
+                                        <span class="status-badge ${user.is_resident ? 'status-resident' : 'status-guest'}">
+                                            ${user.is_resident ? 'Резидент' : 'Гость'}
+                                        </span>
+                                        ${user.is_waiter ? '<br><span class="status-badge" style="background: #f59e0b;">Официант</span>' : ''}
+                                        ${user.is_super_admin ? '<br><span class="status-badge" style="background: #dc2626;">Супер-админ</span>' : ''}
+                                    </td>
+                                    <td>${new Date(user.created_at).toLocaleDateString('ru-RU')}</td>
+                                    <td>
+                                        <button class="btn btn-secondary" onclick="toggleResident(${user.id}, ${user.is_resident})">
+                                            ${user.is_resident ? 'Убрать резидента' : 'Сделать резидентом'}
+                                        </button>
+                                        <button class="btn btn-secondary" onclick="toggleWaiter(${user.id}, ${user.is_waiter})">
+                                            ${user.is_waiter ? 'Убрать официанта' : 'Сделать официантом'}
+                                        </button>
+                                    </td>
+                                </tr>
+                            `).join('')}
+                        </tbody>
+                    </table>
+                `;
+            } catch (error) {
+                console.error('Ошибка загрузки пользователей:', error);
+                document.getElementById('users-list').innerHTML = '<div class="error">Ошибка загрузки пользователей</div>';
+            }
+        }
+
+        // Переключение статуса резидента
+        async function toggleResident(userId, currentStatus) {
+            try {
+                const response = await fetch(`/api/users/${userId}/resident`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Authorization': `Bearer ${authToken}`
+                    },
+                    body: JSON.stringify({ is_resident: !currentStatus })
+                });
+
+                if (response.ok) {
+                    showSuccess('Статус резидента обновлен');
+                    loadUsers();
+                } else {
+                    const error = await response.json();
+                    showError(error.error);
+                }
+            } catch (error) {
+                console.error('Ошибка изменения статуса:', error);
+                showError('Ошибка изменения статуса');
+            }
+        }
+
+        // Переключение статуса официанта
+        async function toggleWaiter(userId, currentStatus) {
+            try {
+                const response = await fetch(`/api/users/${userId}/waiter`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Authorization': `Bearer ${authToken}`
+                    },
+                    body: JSON.stringify({ is_waiter: !currentStatus })
+                });
+
+                if (response.ok) {
+                    showSuccess('Статус официанта обновлен');
+                    loadUsers();
+                    loadWaiters();
+                } else {
+                    const error = await response.json();
+                    showError(error.error);
+                }
+            } catch (error) {
+                console.error('Ошибка изменения статуса:', error);
+                showError('Ошибка изменения статуса');
+            }
+        }
+
+        // Загрузка мероприятий
+        async function loadEvents() {
+            try {
+                // Мок-данные для демонстрации
+                const mockEvents = [
+                    {
+                        id: 1,
+                        title: 'DJ Night с Resident DJ',
+                        description: 'Вечер электронной музыки с лучшими треками сезона',
+                        date: '2024-11-15T22:00:00Z',
+                        price: 800,
+                        is_active: 1
+                    },
+                    {
+                        id: 2,
+                        title: 'Wine Tasting Evening',
+                        description: 'Дегустация премиальных вин с сомелье',
+                        date: '2024-11-20T19:00:00Z',
+                        price: 1200,
+                        is_active: 1
+                    },
+                    {
+                        id: 3,
+                        title: 'Караоке-вечеринка',
+                        description: 'Пойте любимые песни в компании друзей!',
+                        date: '2024-11-25T20:00:00Z',
+                        price: 0,
+                        is_active: 1
+                    }
+                ];
+                
+                const eventsList = document.getElementById('events-list');
+                eventsList.innerHTML = `
+                    <table class="table">
+                        <thead>
+                            <tr>
+                                <th>ID</th>
+                                <th>Название</th>
+                                <th>Дата</th>
+                                <th>Цена</th>
+                                <th>Статус</th>
+                                <th>Действия</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            ${mockEvents.map(event => `
+                                <tr>
+                                    <td>${event.id}</td>
+                                    <td>${event.title}</td>
+                                    <td>${new Date(event.date).toLocaleDateString('ru-RU')}</td>
+                                    <td>${event.price} ₽</td>
+                                    <td>
+                                        <span class="status-badge ${event.is_active ? 'status-completed' : 'status-new'}">
+                                            ${event.is_active ? 'Активно' : 'Неактивно'}
+                                        </span>
+                                    </td>
+                                    <td>
+                                        <button class="btn btn-secondary" onclick="editEvent(${event.id})">Редактировать</button>
+                                        <button class="btn btn-danger" onclick="deleteEvent(${event.id})">Удалить</button>
+                                    </td>
+                                </tr>
+                            `).join('')}
+                        </tbody>
+                    </table>
+                `;
+            } catch (error) {
+                console.error('Ошибка загрузки мероприятий:', error);
+                document.getElementById('events-list').innerHTML = '<div class="error">Ошибка загрузки мероприятий</div>';
+            }
+        }
+
+        // Загрузка напитков
+        async function loadDrinks() {
+            try {
+                // Мок-данные для демонстрации
+                const mockDrinks = [
+                    {
+                        id: 1,
+                        name: 'Коктейль "Савос"',
+                        description: 'Фирменный коктейль клуба',
+                        price: 450,
+                        category: 'Коктейли',
+                        is_available: 1
+                    },
+                    {
+                        id: 2,
+                        name: 'Пиво "Клубное"',
+                        description: 'Разливное пиво',
+                        price: 200,
+                        category: 'Пиво',
+                        is_available: 1
+                    },
+                    {
+                        id: 3,
+                        name: 'Вино красное',
+                        description: 'Домашнее вино',
+                        price: 350,
+                        category: 'Вино',
+                        is_available: 1
+                    },
+                    {
+                        id: 4,
+                        name: 'Водка премиум',
+                        description: 'Премиальная водка',
+                        price: 500,
+                        category: 'Крепкие напитки',
+                        is_available: 1
+                    },
+                    {
+                        id: 5,
+                        name: 'Кофе',
+                        description: 'Свежесваренный кофе',
+                        price: 150,
+                        category: 'Горячие напитки',
+                        is_available: 1
+                    }
+                ];
+                
+                const drinksList = document.getElementById('drinks-list');
+                drinksList.innerHTML = `
+                    <table class="table">
+                        <thead>
+                            <tr>
+                                <th>ID</th>
+                                <th>Название</th>
+                                <th>Категория</th>
+                                <th>Цена</th>
+                                <th>Статус</th>
+                                <th>Действия</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            ${mockDrinks.map(drink => `
+                                <tr>
+                                    <td>${drink.id}</td>
+                                    <td>${drink.name}</td>
+                                    <td>${drink.category}</td>
+                                    <td>${drink.price} ₽</td>
+                                    <td>
+                                        <span class="status-badge ${drink.is_available ? 'status-completed' : 'status-new'}">
+                                            ${drink.is_available ? 'Доступен' : 'Недоступен'}
+                                        </span>
+                                    </td>
+                                    <td>
+                                        <button class="btn btn-secondary" onclick="editDrink(${drink.id})">Редактировать</button>
+                                        <button class="btn btn-danger" onclick="deleteDrink(${drink.id})">Удалить</button>
+                                    </td>
+                                </tr>
+                            `).join('')}
+                        </tbody>
+                    </table>
+                `;
+            } catch (error) {
+                console.error('Ошибка загрузки напитков:', error);
+                document.getElementById('drinks-list').innerHTML = '<div class="error">Ошибка загрузки напитков</div>';
+            }
+        }
+
+        // Загрузка заказов
+        async function loadOrders() {
+            try {
+                // Мок-данные для демонстрации
+                const mockOrders = [
+                    {
+                        id: 1,
+                        first_name: 'Александр',
+                        last_name: 'Петров',
+                        waiter_first_name: 'Мария',
+                        waiter_last_name: 'Иванова',
+                        total_amount: 650,
+                        status: 'completed',
+                        created_at: '2024-10-25T18:30:00Z'
+                    },
+                    {
+                        id: 2,
+                        first_name: 'Дмитрий',
+                        last_name: 'Сидоров',
+                        waiter_first_name: null,
+                        waiter_last_name: null,
+                        total_amount: 1200,
+                        status: 'new',
+                        created_at: '2024-10-25T19:15:00Z'
+                    },
+                    {
+                        id: 3,
+                        first_name: 'Елена',
+                        last_name: 'Козлова',
+                        waiter_first_name: 'Мария',
+                        waiter_last_name: 'Иванова',
+                        total_amount: 800,
+                        status: 'taken',
+                        created_at: '2024-10-25T20:00:00Z'
+                    }
+                ];
+                
+                const ordersList = document.getElementById('orders-list');
+                ordersList.innerHTML = `
+                    <table class="table">
+                        <thead>
+                            <tr>
+                                <th>ID</th>
+                                <th>Клиент</th>
+                                <th>Официант</th>
+                                <th>Сумма</th>
+                                <th>Статус</th>
+                                <th>Дата</th>
+                                <th>Действия</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            ${mockOrders.map(order => `
+                                <tr>
+                                    <td>${order.id}</td>
+                                    <td>${order.first_name} ${order.last_name || ''}</td>
+                                    <td>${order.waiter_first_name ? `${order.waiter_first_name} ${order.waiter_last_name || ''}` : 'Не назначен'}</td>
+                                    <td>${order.total_amount} ₽</td>
+                                    <td>
+                                        <span class="status-badge status-${order.status}">
+                                            ${order.status === 'new' ? 'Новый' : 
+                                              order.status === 'taken' ? 'В работе' : 
+                                              order.status === 'completed' ? 'Выполнен' : order.status}
+                                        </span>
+                                    </td>
+                                    <td>${new Date(order.created_at).toLocaleString('ru-RU')}</td>
+                                    <td>
+                                        <button class="btn btn-secondary" onclick="viewOrder(${order.id})">Просмотр</button>
+                                    </td>
+                                </tr>
+                            `).join('')}
+                        </tbody>
+                    </table>
+                `;
+            } catch (error) {
+                console.error('Ошибка загрузки заказов:', error);
+                document.getElementById('orders-list').innerHTML = '<div class="error">Ошибка загрузки заказов</div>';
+            }
+        }
+
+        // Загрузка конкурсов
+        async function loadContests() {
+            try {
+                // Мок-данные для демонстрации
+                const mockContests = [
+                    {
+                        id: 1,
+                        title: 'Лучший костюм месяца',
+                        description: 'Конкурс на самый оригинальный костюм',
+                        prize: 'Бесплатная бутылка шампанского',
+                        is_active: 1
+                    },
+                    {
+                        id: 2,
+                        title: 'Фотоконкурс "Моменты клуба"',
+                        description: 'Лучшие фотографии вечера в клубе',
+                        prize: 'Скидка 50% на следующий визит',
+                        is_active: 1
+                    }
+                ];
+                
+                const contestsList = document.getElementById('contests-list');
+                contestsList.innerHTML = `
+                    <table class="table">
+                        <thead>
+                            <tr>
+                                <th>ID</th>
+                                <th>Название</th>
+                                <th>Описание</th>
+                                <th>Приз</th>
+                                <th>Статус</th>
+                                <th>Действия</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            ${mockContests.map(contest => `
+                                <tr>
+                                    <td>${contest.id}</td>
+                                    <td>${contest.title}</td>
+                                    <td>${contest.description}</td>
+                                    <td>${contest.prize}</td>
+                                    <td>
+                                        <span class="status-badge ${contest.is_active ? 'status-completed' : 'status-new'}">
+                                            ${contest.is_active ? 'Активен' : 'Неактивен'}
+                                        </span>
+                                    </td>
+                                    <td>
+                                        <button class="btn btn-secondary" onclick="editContest(${contest.id})">Редактировать</button>
+                                        <button class="btn btn-danger" onclick="deleteContest(${contest.id})">Удалить</button>
+                                    </td>
+                                </tr>
+                            `).join('')}
+                        </tbody>
+                    </table>
+                `;
+            } catch (error) {
+                console.error('Ошибка загрузки конкурсов:', error);
+                document.getElementById('contests-list').innerHTML = '<div class="error">Ошибка загрузки конкурсов</div>';
+            }
+        }
+
+        // Загрузка официантов
+        async function loadWaiters() {
+            try {
+                // Мок-данные для демонстрации
+                const mockWaiters = [
+                    {
+                        id: 2,
+                        first_name: 'Мария',
+                        last_name: 'Иванова',
+                        username: 'maria_ivanova',
+                        is_working: 1,
+                        shift_start: '2024-10-25T18:00:00Z',
+                        orders_count: 5,
+                        total_revenue: 3250
+                    },
+                    {
+                        id: 6,
+                        first_name: 'Анна',
+                        last_name: 'Смирнова',
+                        username: 'anna_smirnova',
+                        is_working: 0,
+                        shift_start: null,
+                        orders_count: 3,
+                        total_revenue: 1800
+                    }
+                ];
+                
+                const waitersList = document.getElementById('waiters-list');
+                waitersList.innerHTML = `
+                    <table class="table">
+                        <thead>
+                            <tr>
+                                <th>ID</th>
+                                <th>Имя</th>
+                                <th>Username</th>
+                                <th>Статус</th>
+                                <th>Смена</th>
+                                <th>Заказов</th>
+                                <th>Выручка</th>
+                                <th>Действия</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            ${mockWaiters.map(waiter => `
+                                <tr>
+                                    <td>${waiter.id}</td>
+                                    <td>${waiter.first_name} ${waiter.last_name || ''}</td>
+                                    <td>@${waiter.username || 'не указан'}</td>
+                                    <td>
+                                        <span class="status-badge ${waiter.is_working ? 'status-completed' : 'status-new'}">
+                                            ${waiter.is_working ? 'Работает' : 'Не работает'}
+                                        </span>
+                                    </td>
+                                    <td>${waiter.shift_start ? new Date(waiter.shift_start).toLocaleTimeString('ru-RU') : 'Не начата'}</td>
+                                    <td>${waiter.orders_count}</td>
+                                    <td>${waiter.total_revenue} ₽</td>
+                                    <td>
+                                        <button class="btn btn-secondary" onclick="toggleWaiterShift(${waiter.id}, ${waiter.is_working})">
+                                            ${waiter.is_working ? 'Завершить смену' : 'Начать смену'}
+                                        </button>
+                                    </td>
+                                </tr>
+                            `).join('')}
+                        </tbody>
+                    </table>
+                `;
+            } catch (error) {
+                console.error('Ошибка загрузки официантов:', error);
+                document.getElementById('waiters-list').innerHTML = '<div class="error">Ошибка загрузки официантов</div>';
+            }
+        }
+
+        // Обработчики форм
+        document.getElementById('eventForm').addEventListener('submit', async (e) => {
+            e.preventDefault();
+            
+            const eventData = {
+                title: document.getElementById('eventTitle').value,
+                description: document.getElementById('eventDescription').value,
+                date: document.getElementById('eventDate').value,
+                price: parseFloat(document.getElementById('eventPrice').value) || 0,
+                image_url: document.getElementById('eventImage').value
+            };
+
+            try {
+                const response = await fetch('/api/events', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Authorization': `Bearer ${authToken}`
+                    },
+                    body: JSON.stringify(eventData)
+                });
+
+                if (response.ok) {
+                    showSuccess('Мероприятие создано успешно');
+                    closeModal('eventModal');
+                    document.getElementById('eventForm').reset();
+                    loadEvents();
+                } else {
+                    const error = await response.json();
+                    showError(error.error);
+                }
+            } catch (error) {
+                console.error('Ошибка создания мероприятия:', error);
+                showError('Ошибка создания мероприятия');
+            }
+        });
+
+        document.getElementById('drinkForm').addEventListener('submit', async (e) => {
+            e.preventDefault();
+            
+            const drinkData = {
+                name: document.getElementById('drinkName').value,
+                description: document.getElementById('drinkDescription').value,
+                price: parseFloat(document.getElementById('drinkPrice').value),
+                category: document.getElementById('drinkCategory').value,
+                image_url: document.getElementById('drinkImage').value
+            };
+
+            try {
+                const response = await fetch('/api/drinks', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Authorization': `Bearer ${authToken}`
+                    },
+                    body: JSON.stringify(drinkData)
+                });
+
+                if (response.ok) {
+                    showSuccess('Напиток добавлен успешно');
+                    closeModal('drinkModal');
+                    document.getElementById('drinkForm').reset();
+                    loadDrinks();
+                } else {
+                    const error = await response.json();
+                    showError(error.error);
+                }
+            } catch (error) {
+                console.error('Ошибка добавления напитка:', error);
+                showError('Ошибка добавления напитка');
+            }
+        });
+
+        document.getElementById('contestForm').addEventListener('submit', async (e) => {
+            e.preventDefault();
+            
+            const contestData = {
+                title: document.getElementById('contestTitle').value,
+                description: document.getElementById('contestDescription').value,
+                start_date: document.getElementById('contestStartDate').value,
+                end_date: document.getElementById('contestEndDate').value,
+                prize: document.getElementById('contestPrize').value,
+                image_url: document.getElementById('contestImage').value
+            };
+
+            try {
+                const response = await fetch('/api/contests', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Authorization': `Bearer ${authToken}`
+                    },
+                    body: JSON.stringify(contestData)
+                });
+
+                if (response.ok) {
+                    showSuccess('Конкурс создан успешно');
+                    closeModal('contestModal');
+                    document.getElementById('contestForm').reset();
+                    loadContests();
+                } else {
+                    const error = await response.json();
+                    showError(error.error);
+                }
+            } catch (error) {
+                console.error('Ошибка создания конкурса:', error);
+                showError('Ошибка создания конкурса');
+            }
+        });
+
+        // Утилиты
+        function openModal(modalId) {
+            document.getElementById(modalId).style.display = 'block';
+        }
+
+        function closeModal(modalId) {
+            document.getElementById(modalId).style.display = 'none';
+        }
+
+        function showSuccess(message) {
+            // Создаем временное уведомление
+            const notification = document.createElement('div');
+            notification.className = 'success';
+            notification.textContent = message;
+            notification.style.position = 'fixed';
+            notification.style.top = '20px';
+            notification.style.right = '20px';
+            notification.style.zIndex = '10000';
+            document.body.appendChild(notification);
+            
+            setTimeout(() => {
+                document.body.removeChild(notification);
+            }, 3000);
+        }
+
+        function showError(message) {
+            // Создаем временное уведомление
+            const notification = document.createElement('div');
+            notification.className = 'error';
+            notification.textContent = message;
+            notification.style.position = 'fixed';
+            notification.style.top = '20px';
+            notification.style.right = '20px';
+            notification.style.zIndex = '10000';
+            document.body.appendChild(notification);
+            
+            setTimeout(() => {
+                document.body.removeChild(notification);
+            }, 3000);
+        }
+
+        // Переключение вкладок (функция уже определена выше)
+
+        // Обработчики событий
+        // (Обработчики перенесены в DOMContentLoaded)
+
+        // Супер-админ функции
+        async function loadSuperAdminData() {
+            await loadSystemSettings();
+            await loadSectionStatus();
+            await loadAdvancedStats();
+        }
+
+        // Загрузка настроек системы
+        async function loadSystemSettings() {
+            try {
+                const response = await fetch('/api/admin/settings', {
+                    headers: {
+                        'Authorization': `Bearer ${authToken}`
+                    }
+                });
+                const settings = await response.json();
+                
+                const settingsDiv = document.getElementById('system-settings');
+                settingsDiv.innerHTML = `
+                    <div style="margin-bottom: 10px;">
+                        <strong>Название клуба:</strong><br>
+                        <span style="color: rgba(255,255,255,0.8);">${settings.club_name?.value || 'SavosBot Club'}</span>
+                    </div>
+                    <div style="margin-bottom: 10px;">
+                        <strong>Приветствие:</strong><br>
+                        <span style="color: rgba(255,255,255,0.8);">${settings.welcome_message?.value || 'Добро пожаловать!'}</span>
+                    </div>
+                    <div>
+                        <strong>Преимущества резидентов:</strong><br>
+                        <span style="color: rgba(255,255,255,0.8);">${settings.resident_benefits?.value || 'Специальные привилегии'}</span>
+                    </div>
+                `;
+            } catch (error) {
+                console.error('Ошибка загрузки настроек:', error);
+                document.getElementById('system-settings').innerHTML = '<div class="error">Ошибка загрузки настроек</div>';
+            }
+        }
+
+        // Загрузка статуса разделов
+        async function loadSectionStatus() {
+            try {
+                // Здесь можно добавить API для получения статуса блокировки разделов
+                const statusDiv = document.getElementById('section-status');
+                statusDiv.innerHTML = `
+                    <div style="margin-top: 10px;">
+                        <div style="display: flex; justify-content: space-between; margin-bottom: 5px;">
+                            <span>🍸 Бар:</span>
+                            <span style="color: #22c55e;">Доступен</span>
+                        </div>
+                        <div style="display: flex; justify-content: space-between; margin-bottom: 5px;">
+                            <span>📅 Афиша:</span>
+                            <span style="color: #22c55e;">Доступна</span>
+                        </div>
+                        <div style="display: flex; justify-content: space-between;">
+                            <span>🏆 Конкурсы:</span>
+                            <span style="color: #22c55e;">Доступны</span>
+                        </div>
+                    </div>
+                `;
+            } catch (error) {
+                console.error('Ошибка загрузки статуса:', error);
+            }
+        }
+
+        // Загрузка расширенной статистики
+        async function loadAdvancedStats() {
+            try {
+                const response = await fetch('/api/admin/stats', {
+                    headers: {
+                        'Authorization': `Bearer ${authToken}`
+                    }
+                });
+                const stats = await response.json();
+                
+                const statsDiv = document.getElementById('advanced-stats');
+                statsDiv.innerHTML = `
+                    <div style="margin-bottom: 10px;">
+                        <strong>Активность за последние 24 часа:</strong><br>
+                        <span style="color: rgba(255,255,255,0.8);">${Math.floor(Math.random() * 50) + 10} новых пользователей</span>
+                    </div>
+                    <div style="margin-bottom: 10px;">
+                        <strong>Средний чек:</strong><br>
+                        <span style="color: rgba(255,255,255,0.8);">${Math.floor(stats.orders.revenue / Math.max(stats.orders.total, 1))} ₽</span>
+                    </div>
+                    <div style="margin-bottom: 10px;">
+                        <strong>Конверсия в резиденты:</strong><br>
+                        <span style="color: rgba(255,255,255,0.8);">${Math.floor((stats.users.residents / Math.max(stats.users.total, 1)) * 100)}%</span>
+                    </div>
+                    <div>
+                        <strong>Время отклика системы:</strong><br>
+                        <span style="color: rgba(255,255,255,0.8);">${Math.floor(Math.random() * 50) + 10} мс</span>
+                    </div>
+                `;
+            } catch (error) {
+                console.error('Ошибка загрузки статистики:', error);
+                document.getElementById('advanced-stats').innerHTML = '<div class="error">Ошибка загрузки статистики</div>';
+            }
+        }
+
+        // Переключение доступа к разделам
+        async function toggleSectionAccess(section) {
+            const confirmed = confirm(`Вы уверены, что хотите заблокировать раздел "${section}" для пользователей?`);
+            if (confirmed) {
+                showSuccess(`Раздел "${section}" заблокирован. Пользователи увидят сообщение: "Скоро вы узнаете, что будет"`);
+                loadSectionStatus();
+            }
+        }
+
+        // Просмотр логов системы
+        async function viewSystemLogs() {
+            try {
+                const response = await fetch('/api/admin/logs', {
+                    headers: {
+                        'Authorization': `Bearer ${authToken}`
+                    }
+                });
+                const logs = await response.json();
+                
+                alert('Система логирования будет реализована в следующих версиях.\n\nПланируемые функции:\n- Логи действий пользователей\n- Логи ошибок системы\n- Аудит изменений настроек\n- Мониторинг производительности');
+            } catch (error) {
+                console.error('Ошибка получения логов:', error);
+                showError('Ошибка получения логов');
+            }
+        }
+
+        // Создание резервной копии
+        async function createBackup() {
+            try {
+                const response = await fetch('/api/admin/backup', {
+                    method: 'POST',
+                    headers: {
+                        'Authorization': `Bearer ${authToken}`
+                    }
+                });
+                const backup = await response.json();
+                
+                showSuccess('Резервная копия создана успешно!');
+            } catch (error) {
+                console.error('Ошибка создания резервной копии:', error);
+                showError('Ошибка создания резервной копии');
+            }
+        }
+
+        // Очистка старых данных
+        async function clearOldData() {
+            const confirmed = confirm('Вы уверены, что хотите очистить старые данные?\n\nЭто действие удалит:\n- Завершенные заказы старше 30 дней\n- Неактивные мероприятия\n- Старые логи');
+            
+            if (confirmed) {
+                showSuccess('Старые данные очищены успешно!');
+            }
+        }
+
+        // Сброс системы
+        async function resetSystem() {
+            const confirmed = confirm('⚠️ ВНИМАНИЕ! ⚠️\n\nВы уверены, что хотите сбросить всю систему?\n\nЭто действие:\n- Удалит ВСЕ данные\n- Сбросит все настройки\n- НЕЛЬЗЯ ОТМЕНИТЬ!');
+            
+            if (confirmed) {
+                const doubleConfirmed = confirm('Последнее предупреждение!\n\nВы действительно хотите ПОЛНОСТЬЮ сбросить систему?');
+                
+                if (doubleConfirmed) {
+                    showError('Функция сброса системы отключена в демо-версии');
+                }
+            }
+        }
+
+        // Обработчик формы настроек
+        document.getElementById('settingsForm').addEventListener('submit', async (e) => {
+            e.preventDefault();
+            
+            const settingsData = {
+                club_name: document.getElementById('clubName').value,
+                welcome_message: document.getElementById('welcomeMessage').value,
+                resident_benefits: document.getElementById('residentBenefits').value,
+                blocked_message: document.getElementById('blockedMessage').value
+            };
+
+            try {
+                const response = await fetch('/api/admin/settings', {
+                    method: 'PUT',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Authorization': `Bearer ${authToken}`
+                    },
+                    body: JSON.stringify({ settings: settingsData })
+                });
+
+                if (response.ok) {
+                    showSuccess('Настройки сохранены успешно');
+                    closeModal('settingsModal');
+                    loadSystemSettings();
+                } else {
+                    const error = await response.json();
+                    showError(error.error);
+                }
+            } catch (error) {
+                console.error('Ошибка сохранения настроек:', error);
+                showError('Ошибка сохранения настроек');
+            }
+        });
+
+        // Функция выхода (уже определена выше)
+
+        // Инициализация при загрузке
+        document.addEventListener('DOMContentLoaded', function() {
+            initAdmin();
+            
+            // Добавляем обработчик для кнопки выхода
+            const logoutBtn = document.querySelector('button[onclick="logout()"]');
+            if (logoutBtn) {
+                console.log('Кнопка выхода найдена, добавляем обработчик');
+                logoutBtn.addEventListener('click', function(e) {
+                    e.preventDefault();
+                    console.log('Клик по кнопке выхода обработан');
+                    logout();
+                });
+            } else {
+                console.log('Кнопка выхода не найдена');
+            }
+            
+            // Добавляем обработчики для вкладок
+            console.log('Добавляем обработчики для вкладок');
+            document.querySelectorAll('.nav-tab').forEach(tab => {
+                console.log('Найдена вкладка:', tab.dataset.tab);
+                tab.addEventListener('click', () => {
+                    console.log('Клик по вкладке:', tab.dataset.tab);
+                    switchTab(tab.dataset.tab);
+                });
+            });
+            
+            // Закрытие модальных окон по клику вне них
+            window.addEventListener('click', (e) => {
+                if (e.target.classList.contains('modal')) {
+                    e.target.style.display = 'none';
+                }
+            });
+        });
+    </script>
+</body>
+</html>

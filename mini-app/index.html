@@ -1,0 +1,842 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>SavosBot Club</title>
+    <script src="https://telegram.org/js/telegram-web-app.js"></script>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            background: linear-gradient(135deg, #1a1a1a 0%, #2d1b1b 100%);
+            color: #ffffff;
+            min-height: 100vh;
+        }
+
+        .container {
+            max-width: 100%;
+            margin: 0 auto;
+            padding: 20px;
+        }
+
+        .header {
+            text-align: center;
+            margin-bottom: 30px;
+            padding: 20px 0;
+            background: linear-gradient(90deg, #dc2626, #ef4444);
+            border-radius: 15px;
+            box-shadow: 0 8px 32px rgba(220, 38, 38, 0.3);
+        }
+
+        .header h1 {
+            font-size: 28px;
+            font-weight: 700;
+            margin-bottom: 5px;
+            text-shadow: 2px 2px 4px rgba(0, 0, 0, 0.3);
+        }
+
+        .header p {
+            font-size: 16px;
+            opacity: 0.9;
+        }
+
+        .nav-tabs {
+            display: flex;
+            background: rgba(255, 255, 255, 0.1);
+            border-radius: 12px;
+            padding: 5px;
+            margin-bottom: 25px;
+            backdrop-filter: blur(10px);
+        }
+
+        .nav-tab {
+            flex: 1;
+            padding: 12px 8px;
+            text-align: center;
+            border-radius: 8px;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            font-weight: 500;
+            font-size: 14px;
+        }
+
+        .nav-tab.active {
+            background: linear-gradient(90deg, #dc2626, #ef4444);
+            color: white;
+            box-shadow: 0 4px 15px rgba(220, 38, 38, 0.4);
+        }
+
+        .nav-tab:not(.active):hover {
+            background: rgba(255, 255, 255, 0.1);
+        }
+
+        .content {
+            min-height: 400px;
+        }
+
+        .tab-content {
+            display: none;
+            animation: fadeIn 0.3s ease;
+        }
+
+        .tab-content.active {
+            display: block;
+        }
+
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(10px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+
+        .card {
+            background: rgba(255, 255, 255, 0.1);
+            border-radius: 15px;
+            padding: 20px;
+            margin-bottom: 20px;
+            backdrop-filter: blur(10px);
+            border: 1px solid rgba(255, 255, 255, 0.2);
+            transition: transform 0.3s ease, box-shadow 0.3s ease;
+        }
+
+        .card:hover {
+            transform: translateY(-5px);
+            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.3);
+        }
+
+        .card h3 {
+            color: #ef4444;
+            margin-bottom: 10px;
+            font-size: 18px;
+        }
+
+        .btn {
+            background: linear-gradient(90deg, #dc2626, #ef4444);
+            color: white;
+            border: none;
+            padding: 12px 24px;
+            border-radius: 10px;
+            cursor: pointer;
+            font-weight: 600;
+            transition: all 0.3s ease;
+            box-shadow: 0 4px 15px rgba(220, 38, 38, 0.3);
+        }
+
+        .btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 6px 20px rgba(220, 38, 38, 0.4);
+        }
+
+        .btn:active {
+            transform: translateY(0);
+        }
+
+        .btn-secondary {
+            background: rgba(255, 255, 255, 0.2);
+            color: white;
+        }
+
+        .btn-secondary:hover {
+            background: rgba(255, 255, 255, 0.3);
+        }
+
+        .status-badge {
+            display: inline-block;
+            padding: 4px 12px;
+            border-radius: 20px;
+            font-size: 12px;
+            font-weight: 600;
+            text-transform: uppercase;
+        }
+
+        .status-resident {
+            background: linear-gradient(90deg, #dc2626, #ef4444);
+            color: white;
+        }
+
+        .status-guest {
+            background: rgba(255, 255, 255, 0.2);
+            color: white;
+        }
+
+        .drink-item {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 15px;
+            background: rgba(255, 255, 255, 0.05);
+            border-radius: 10px;
+            margin-bottom: 10px;
+            border: 1px solid rgba(255, 255, 255, 0.1);
+        }
+
+        .drink-info h4 {
+            color: #ef4444;
+            margin-bottom: 5px;
+        }
+
+        .drink-price {
+            font-weight: 700;
+            color: #ef4444;
+            font-size: 18px;
+        }
+
+        .quantity-controls {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .quantity-btn {
+            width: 30px;
+            height: 30px;
+            border-radius: 50%;
+            border: none;
+            background: #ef4444;
+            color: white;
+            cursor: pointer;
+            font-weight: bold;
+        }
+
+        .quantity-btn:disabled {
+            background: rgba(255, 255, 255, 0.2);
+            cursor: not-allowed;
+        }
+
+        .quantity {
+            font-weight: 600;
+            min-width: 20px;
+            text-align: center;
+        }
+
+        .loading {
+            text-align: center;
+            padding: 40px;
+            color: #ef4444;
+        }
+
+        .error {
+            background: rgba(239, 68, 68, 0.2);
+            border: 1px solid #ef4444;
+            color: #ef4444;
+            padding: 15px;
+            border-radius: 10px;
+            margin: 10px 0;
+        }
+
+        .success {
+            background: rgba(34, 197, 94, 0.2);
+            border: 1px solid #22c55e;
+            color: #22c55e;
+            padding: 15px;
+            border-radius: 10px;
+            margin: 10px 0;
+        }
+
+        .profile-info {
+            display: grid;
+            gap: 15px;
+        }
+
+        .profile-item {
+            display: flex;
+            justify-content: space-between;
+            padding: 10px 0;
+            border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+        }
+
+        .profile-item:last-child {
+            border-bottom: none;
+        }
+
+        .profile-label {
+            color: rgba(255, 255, 255, 0.7);
+        }
+
+        .profile-value {
+            font-weight: 600;
+        }
+
+        .order-item {
+            background: rgba(255, 255, 255, 0.05);
+            border-radius: 10px;
+            padding: 15px;
+            margin-bottom: 10px;
+            border-left: 4px solid #ef4444;
+        }
+
+        .order-status {
+            float: right;
+            padding: 4px 8px;
+            border-radius: 12px;
+            font-size: 12px;
+            font-weight: 600;
+        }
+
+        .status-new { background: #3b82f6; color: white; }
+        .status-taken { background: #f59e0b; color: white; }
+        .status-completed { background: #22c55e; color: white; }
+
+        @media (max-width: 480px) {
+            .container {
+                padding: 15px;
+            }
+            
+            .header h1 {
+                font-size: 24px;
+            }
+            
+            .nav-tab {
+                font-size: 12px;
+                padding: 10px 6px;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>🏛️ SavosBot Club</h1>
+            <p>Добро пожаловать в эксклюзивный клуб</p>
+        </div>
+
+        <div class="nav-tabs">
+            <div class="nav-tab active" data-tab="events">📅 Афиша</div>
+            <div class="nav-tab" data-tab="bar">🍸 Бар</div>
+            <div class="nav-tab" data-tab="contests">🏆 Конкурсы</div>
+            <div class="nav-tab" data-tab="profile">👤 Профиль</div>
+        </div>
+
+        <div class="content">
+            <!-- Афиша -->
+            <div id="events" class="tab-content active">
+                <div class="card">
+                    <h3>📅 Предстоящие мероприятия</h3>
+                    <div id="events-list">
+                        <div class="loading">Загрузка мероприятий...</div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Бар -->
+            <div id="bar" class="tab-content">
+                <div class="card">
+                    <h3>🍸 Меню бара</h3>
+                    <div id="drinks-list">
+                        <div class="loading">Загрузка меню...</div>
+                    </div>
+                    <div id="cart-summary" style="display: none;">
+                        <hr style="margin: 20px 0; border-color: rgba(255,255,255,0.2);">
+                        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px;">
+                            <span style="font-weight: 600;">Итого:</span>
+                            <span id="total-amount" style="font-weight: 700; color: #ef4444; font-size: 20px;">0 ₽</span>
+                        </div>
+                        <button class="btn" onclick="placeOrder()" style="width: 100%;">
+                            🛒 Оформить заказ
+                        </button>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Конкурсы -->
+            <div id="contests" class="tab-content">
+                <div class="card">
+                    <h3>🏆 Активные конкурсы</h3>
+                    <div id="contests-list">
+                        <div class="loading">Загрузка конкурсов...</div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Профиль -->
+            <div id="profile" class="tab-content">
+                <div class="card">
+                    <h3>👤 Мой профиль</h3>
+                    <div id="profile-info">
+                        <div class="loading">Загрузка профиля...</div>
+                    </div>
+                </div>
+                
+                <div class="card">
+                    <h3>📋 Мои заказы</h3>
+                    <div id="orders-list">
+                        <div class="loading">Загрузка заказов...</div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // Telegram WebApp API
+        const tg = window.Telegram.WebApp;
+        tg.ready();
+        tg.expand();
+
+        // Глобальные переменные
+        let currentUser = null;
+        let cart = {};
+        let authToken = null;
+
+        // Инициализация приложения
+        async function initApp() {
+            try {
+                // Получаем данные пользователя из Telegram
+                const userData = tg.initDataUnsafe.user;
+                
+                if (userData) {
+                    // Авторизуемся через API
+                    const response = await fetch('/api/auth/telegram', {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json',
+                        },
+                        body: JSON.stringify({
+                            telegram_id: userData.id,
+                            username: userData.username,
+                            first_name: userData.first_name,
+                            last_name: userData.last_name
+                        })
+                    });
+
+                    const authData = await response.json();
+                    authToken = authData.token;
+                    currentUser = authData.user;
+
+                    // Загружаем данные
+                    await loadEvents();
+                    await loadDrinks();
+                    await loadContests();
+                    await loadProfile();
+                    await loadOrders();
+                } else {
+                    showError('Ошибка авторизации. Попробуйте перезапустить приложение.');
+                }
+            } catch (error) {
+                console.error('Ошибка инициализации:', error);
+                showError('Ошибка загрузки данных');
+            }
+        }
+
+        // Загрузка мероприятий
+        async function loadEvents() {
+            try {
+                // Мок-данные для демонстрации
+                const events = [
+                    {
+                        id: 1,
+                        title: 'DJ Night с Resident DJ',
+                        description: 'Вечер электронной музыки с лучшими треками сезона',
+                        date: '2024-11-15T22:00:00Z',
+                        price: 800,
+                        is_active: 1
+                    },
+                    {
+                        id: 2,
+                        title: 'Wine Tasting Evening',
+                        description: 'Дегустация премиальных вин с сомелье',
+                        date: '2024-11-20T19:00:00Z',
+                        price: 1200,
+                        is_active: 1
+                    },
+                    {
+                        id: 3,
+                        title: 'Караоке-вечеринка',
+                        description: 'Пойте любимые песни в компании друзей!',
+                        date: '2024-11-25T20:00:00Z',
+                        price: 0,
+                        is_active: 1
+                    }
+                ];
+                
+                const eventsList = document.getElementById('events-list');
+                if (events.length === 0) {
+                    eventsList.innerHTML = '<p style="text-align: center; color: rgba(255,255,255,0.7);">Нет предстоящих мероприятий</p>';
+                    return;
+                }
+
+                eventsList.innerHTML = events.map(event => `
+                    <div class="card" style="margin-bottom: 15px;">
+                        <h4 style="color: #ef4444; margin-bottom: 10px;">${event.title}</h4>
+                        <p style="margin-bottom: 10px; color: rgba(255,255,255,0.8);">${event.description || ''}</p>
+                        <div style="display: flex; justify-content: space-between; align-items: center;">
+                            <span style="color: rgba(255,255,255,0.7);">
+                                📅 ${new Date(event.date).toLocaleDateString('ru-RU')}
+                            </span>
+                            ${event.price > 0 ? `<span style="font-weight: 600; color: #ef4444;">${event.price} ₽</span>` : '<span style="color: #22c55e;">Бесплатно</span>'}
+                        </div>
+                    </div>
+                `).join('');
+            } catch (error) {
+                console.error('Ошибка загрузки мероприятий:', error);
+                document.getElementById('events-list').innerHTML = '<div class="error">Ошибка загрузки мероприятий</div>';
+            }
+        }
+
+        // Загрузка напитков
+        async function loadDrinks() {
+            try {
+                // Мок-данные для демонстрации
+                const drinks = [
+                    {
+                        id: 1,
+                        name: 'Коктейль "Савос"',
+                        description: 'Фирменный коктейль клуба',
+                        price: 450,
+                        category: 'Коктейли',
+                        is_available: 1
+                    },
+                    {
+                        id: 2,
+                        name: 'Пиво "Клубное"',
+                        description: 'Разливное пиво',
+                        price: 200,
+                        category: 'Пиво',
+                        is_available: 1
+                    },
+                    {
+                        id: 3,
+                        name: 'Вино красное',
+                        description: 'Домашнее вино',
+                        price: 350,
+                        category: 'Вино',
+                        is_available: 1
+                    },
+                    {
+                        id: 4,
+                        name: 'Водка премиум',
+                        description: 'Премиальная водка',
+                        price: 500,
+                        category: 'Крепкие напитки',
+                        is_available: 1
+                    },
+                    {
+                        id: 5,
+                        name: 'Кофе',
+                        description: 'Свежесваренный кофе',
+                        price: 150,
+                        category: 'Горячие напитки',
+                        is_available: 1
+                    }
+                ];
+                
+                const drinksList = document.getElementById('drinks-list');
+                drinksList.innerHTML = drinks.map(drink => `
+                    <div class="drink-item">
+                        <div class="drink-info">
+                            <h4>${drink.name}</h4>
+                            <p style="color: rgba(255,255,255,0.7); font-size: 14px;">${drink.description || ''}</p>
+                        </div>
+                        <div style="display: flex; align-items: center; gap: 15px;">
+                            <span class="drink-price">${drink.price} ₽</span>
+                            <div class="quantity-controls">
+                                <button class="quantity-btn" onclick="updateQuantity(${drink.id}, -1)" ${cart[drink.id] ? '' : 'disabled'}>-</button>
+                                <span class="quantity">${cart[drink.id] || 0}</span>
+                                <button class="quantity-btn" onclick="updateQuantity(${drink.id}, 1)">+</button>
+                            </div>
+                        </div>
+                    </div>
+                `).join('');
+
+                updateCartSummary();
+            } catch (error) {
+                console.error('Ошибка загрузки напитков:', error);
+                document.getElementById('drinks-list').innerHTML = '<div class="error">Ошибка загрузки меню</div>';
+            }
+        }
+
+        // Обновление количества в корзине
+        function updateQuantity(drinkId, change) {
+            if (!cart[drinkId]) {
+                cart[drinkId] = 0;
+            }
+            
+            cart[drinkId] += change;
+            
+            if (cart[drinkId] <= 0) {
+                delete cart[drinkId];
+            }
+            
+            // Обновляем отображение
+            const quantityElement = document.querySelector(`[onclick="updateQuantity(${drinkId}, -1)"]`).nextElementSibling;
+            quantityElement.textContent = cart[drinkId] || 0;
+            
+            // Обновляем кнопки
+            const minusBtn = document.querySelector(`[onclick="updateQuantity(${drinkId}, -1)"]`);
+            minusBtn.disabled = !cart[drinkId];
+            
+            updateCartSummary();
+        }
+
+        // Обновление сводки корзины
+        async function updateCartSummary() {
+            const cartSummary = document.getElementById('cart-summary');
+            const totalAmount = document.getElementById('total-amount');
+            
+            const hasItems = Object.keys(cart).length > 0;
+            cartSummary.style.display = hasItems ? 'block' : 'none';
+            
+            if (hasItems) {
+                // Получаем цены напитков
+                const response = await fetch('/api/drinks');
+                const drinks = await response.json();
+                
+                let total = 0;
+                for (const [drinkId, quantity] of Object.entries(cart)) {
+                    const drink = drinks.find(d => d.id == drinkId);
+                    if (drink) {
+                        total += drink.price * quantity;
+                    }
+                }
+                
+                totalAmount.textContent = `${total} ₽`;
+            }
+        }
+
+        // Оформление заказа
+        async function placeOrder() {
+            try {
+                const items = Object.entries(cart).map(([drinkId, quantity]) => ({
+                    drink_id: parseInt(drinkId),
+                    quantity: quantity
+                }));
+
+                const response = await fetch('/api/orders', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Authorization': `Bearer ${authToken}`
+                    },
+                    body: JSON.stringify({ items })
+                });
+
+                if (response.ok) {
+                    cart = {};
+                    updateCartSummary();
+                    loadDrinks();
+                    loadOrders();
+                    
+                    // Показываем уведомление
+                    tg.showAlert('Заказ успешно оформлен! Официант скоро подойдет к вашему столику.');
+                } else {
+                    const error = await response.json();
+                    showError(error.error || 'Ошибка оформления заказа');
+                }
+            } catch (error) {
+                console.error('Ошибка оформления заказа:', error);
+                showError('Ошибка оформления заказа');
+            }
+        }
+
+        // Загрузка конкурсов
+        async function loadContests() {
+            try {
+                // Мок-данные для демонстрации
+                const contests = [
+                    {
+                        id: 1,
+                        title: 'Лучший костюм месяца',
+                        description: 'Конкурс на самый оригинальный костюм',
+                        prize: 'Бесплатная бутылка шампанского',
+                        is_active: 1
+                    },
+                    {
+                        id: 2,
+                        title: 'Фотоконкурс "Моменты клуба"',
+                        description: 'Лучшие фотографии вечера в клубе',
+                        prize: 'Скидка 50% на следующий визит',
+                        is_active: 1
+                    }
+                ];
+                
+                const contestsList = document.getElementById('contests-list');
+                if (contests.length === 0) {
+                    contestsList.innerHTML = '<p style="text-align: center; color: rgba(255,255,255,0.7);">Нет активных конкурсов</p>';
+                    return;
+                }
+
+                contestsList.innerHTML = contests.map(contest => `
+                    <div class="card" style="margin-bottom: 15px;">
+                        <h4 style="color: #ef4444; margin-bottom: 10px;">${contest.title}</h4>
+                        <p style="margin-bottom: 10px; color: rgba(255,255,255,0.8);">${contest.description || ''}</p>
+                        <div style="margin-bottom: 15px;">
+                            <span style="color: rgba(255,255,255,0.7);">
+                                📅 До ${new Date(contest.end_date).toLocaleDateString('ru-RU')}
+                            </span>
+                            ${contest.prize ? `<br><span style="color: #f59e0b;">🏆 Приз: ${contest.prize}</span>` : ''}
+                        </div>
+                        <button class="btn" onclick="participateInContest(${contest.id})">
+                            🎯 Участвовать
+                        </button>
+                    </div>
+                `).join('');
+            } catch (error) {
+                console.error('Ошибка загрузки конкурсов:', error);
+                document.getElementById('contests-list').innerHTML = '<div class="error">Ошибка загрузки конкурсов</div>';
+            }
+        }
+
+        // Участие в конкурсе
+        async function participateInContest(contestId) {
+            const submission = prompt('Опишите вашу заявку на участие:');
+            if (!submission) return;
+
+            try {
+                const response = await fetch(`/api/contests/${contestId}/participate`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Authorization': `Bearer ${authToken}`
+                    },
+                    body: JSON.stringify({ submission })
+                });
+
+                if (response.ok) {
+                    tg.showAlert('Заявка на участие подана успешно!');
+                    loadContests();
+                } else {
+                    const error = await response.json();
+                    showError(error.error || 'Ошибка подачи заявки');
+                }
+            } catch (error) {
+                console.error('Ошибка участия в конкурсе:', error);
+                showError('Ошибка подачи заявки');
+            }
+        }
+
+        // Загрузка профиля
+        async function loadProfile() {
+            try {
+                // Мок-данные для демонстрации
+                const user = {
+                    id: 1,
+                    first_name: 'Александр',
+                    last_name: 'Петров',
+                    username: 'alex_petrov',
+                    is_resident: 1,
+                    is_waiter: 0,
+                    created_at: '2024-10-15T10:30:00Z'
+                };
+                
+                const profileInfo = document.getElementById('profile-info');
+                profileInfo.innerHTML = `
+                    <div class="profile-info">
+                        <div class="profile-item">
+                            <span class="profile-label">Имя:</span>
+                            <span class="profile-value">${user.first_name} ${user.last_name || ''}</span>
+                        </div>
+                        <div class="profile-item">
+                            <span class="profile-label">Username:</span>
+                            <span class="profile-value">@${user.username || 'не указан'}</span>
+                        </div>
+                        <div class="profile-item">
+                            <span class="profile-label">Статус:</span>
+                            <span class="status-badge ${user.is_resident ? 'status-resident' : 'status-guest'}">
+                                ${user.is_resident ? '🏆 Резидент' : '👤 Гость'}
+                            </span>
+                        </div>
+                        <div class="profile-item">
+                            <span class="profile-label">Дата регистрации:</span>
+                            <span class="profile-value">${new Date(user.created_at).toLocaleDateString('ru-RU')}</span>
+                        </div>
+                    </div>
+                `;
+            } catch (error) {
+                console.error('Ошибка загрузки профиля:', error);
+                document.getElementById('profile-info').innerHTML = '<div class="error">Ошибка загрузки профиля</div>';
+            }
+        }
+
+        // Загрузка заказов
+        async function loadOrders() {
+            try {
+                // Мок-данные для демонстрации
+                const orders = [
+                    {
+                        id: 1,
+                        total_amount: 650,
+                        status: 'completed',
+                        created_at: '2024-10-25T18:30:00Z',
+                        items: [
+                            { drink_name: 'Коктейль "Савос"', quantity: 1, price: 450 },
+                            { drink_name: 'Пиво "Клубное"', quantity: 1, price: 200 }
+                        ]
+                    },
+                    {
+                        id: 2,
+                        total_amount: 1200,
+                        status: 'new',
+                        created_at: '2024-10-25T19:15:00Z',
+                        items: [
+                            { drink_name: 'Wine Tasting Evening', quantity: 1, price: 1200 }
+                        ]
+                    }
+                ];
+                
+                const ordersList = document.getElementById('orders-list');
+                if (orders.length === 0) {
+                    ordersList.innerHTML = '<p style="text-align: center; color: rgba(255,255,255,0.7);">У вас пока нет заказов</p>';
+                    return;
+                }
+
+                ordersList.innerHTML = orders.map(order => `
+                    <div class="order-item">
+                        <div class="order-status status-${order.status}">
+                            ${order.status === 'new' ? 'Новый' : 
+                              order.status === 'taken' ? 'В работе' : 
+                              order.status === 'completed' ? 'Выполнен' : order.status}
+                        </div>
+                        <h4 style="margin-bottom: 10px;">Заказ #${order.id}</h4>
+                        <p style="margin-bottom: 10px; color: rgba(255,255,255,0.8);">${order.items || ''}</p>
+                        <div style="display: flex; justify-content: space-between; align-items: center;">
+                            <span style="color: rgba(255,255,255,0.7);">
+                                📅 ${new Date(order.created_at).toLocaleString('ru-RU')}
+                            </span>
+                            <span style="font-weight: 600; color: #ef4444;">${order.total_amount} ₽</span>
+                        </div>
+                        ${order.confirmation_code ? `
+                            <div style="margin-top: 10px; padding: 10px; background: rgba(34, 197, 94, 0.2); border-radius: 8px;">
+                                <strong>Код подтверждения:</strong> ${order.confirmation_code}
+                            </div>
+                        ` : ''}
+                    </div>
+                `).join('');
+            } catch (error) {
+                console.error('Ошибка загрузки заказов:', error);
+                document.getElementById('orders-list').innerHTML = '<div class="error">Ошибка загрузки заказов</div>';
+            }
+        }
+
+        // Показать ошибку
+        function showError(message) {
+            tg.showAlert(message);
+        }
+
+        // Переключение вкладок
+        function switchTab(tabName) {
+            // Убираем активный класс со всех вкладок и контента
+            document.querySelectorAll('.nav-tab').forEach(tab => tab.classList.remove('active'));
+            document.querySelectorAll('.tab-content').forEach(content => content.classList.remove('active'));
+            
+            // Активируем выбранную вкладку и контент
+            document.querySelector(`[data-tab="${tabName}"]`).classList.add('active');
+            document.getElementById(tabName).classList.add('active');
+        }
+
+        // Обработчики событий
+        document.querySelectorAll('.nav-tab').forEach(tab => {
+            tab.addEventListener('click', () => {
+                switchTab(tab.dataset.tab);
+            });
+        });
+
+        // Инициализация при загрузке
+        document.addEventListener('DOMContentLoaded', initApp);
+    </script>
+</body>
+</html>
