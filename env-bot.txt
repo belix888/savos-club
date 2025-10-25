@@ -1,0 +1,4 @@
+# Telegram Bot Environment Variables for Your Hosting
+BOT_TOKEN=8498015879:AAEemLqn9Hv9NWC_hcqvx4goKlVwNCFsT_c
+NODE_ENV=production
+PORT=3000
