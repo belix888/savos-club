@@ -1,0 +1,41 @@
+# Telegram Bot Environment Variables for Your Hosting
+# Copy this file to .env and update the values
+
+# Telegram Bot Token
+BOT_TOKEN=8498015879:AAEemLqn9Hv9NWC_hcqvx4goKlVwNCFsT_c
+
+# Website URL (your Vercel app)
+WEBSITE_URL=https://your-app.vercel.app
+
+# API Key for website communication
+API_KEY=savosbot2024
+
+# Server Configuration
+NODE_ENV=production
+PORT=3000
+
+# Database Configuration
+DB_TYPE=file
+DB_PATH=./data
+
+# Logging
+LOG_LEVEL=info
+LOG_FILE=./logs/bot.log
+
+# Security
+JWT_SECRET=your-jwt-secret-here
+ENCRYPTION_KEY=your-encryption-key-here
+
+# Rate Limiting
+RATE_LIMIT_WINDOW=900000
+RATE_LIMIT_MAX=100
+
+# Webhook Configuration
+WEBHOOK_URL=https://ваш-домен.com/webhook
+WEBHOOK_SECRET=your-webhook-secret
+
+# Admin Configuration
+ADMIN_USERNAME=admin
+ADMIN_PASSWORD=admin123
+SUPER_ADMIN_USERNAME=superadmin
+SUPER_ADMIN_PASSWORD=savos2024
