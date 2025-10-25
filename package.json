@@ -4,7 +4,7 @@
   "description": "Telegram bot with Mini App for club management",
   "main": "src/index.js",
   "scripts": {
-    "start": "node src/index.js",
+    "start": "node src/simple-server.js",
     "dev": "nodemon src/index.js",
     "setup": "node database/setup.js",
     "demo": "node database/demo-data.js",
