@@ -1,0 +1,55 @@
+# SavosBot Club - Telegram Bot Environment Variables
+# Copy this file to .env and update the values
+
+# Telegram Bot Configuration
+BOT_TOKEN=8498015879:AAEemLqn9Hv9NWC_hcqvx4goKlVwNCFsT_c
+
+# Website Configuration
+WEBSITE_URL=https://your-app.vercel.app
+API_KEY=savosbot2024
+
+# Server Configuration
+NODE_ENV=production
+PORT=3000
+
+# Database Configuration
+DB_TYPE=file
+DB_PATH=./data
+
+# Logging Configuration
+LOG_LEVEL=INFO
+LOG_FILE=./logs/bot.log
+
+# Security Configuration
+JWT_SECRET=your-jwt-secret-here
+ENCRYPTION_KEY=your-encryption-key-here
+
+# Rate Limiting
+RATE_LIMIT_WINDOW=900
+RATE_LIMIT_MAX=100
+
+# Webhook Configuration
+WEBHOOK_URL=https://ваш-домен.com/webhook
+WEBHOOK_SECRET=your-webhook-secret
+
+# Admin Configuration
+ADMIN_USERNAME=admin
+ADMIN_PASSWORD=admin123
+SUPER_ADMIN_USERNAME=superadmin
+SUPER_ADMIN_PASSWORD=savos2024
+
+# Bot Configuration
+BOT_NAME=SavosBot Club
+WELCOME_MESSAGE=Добро пожаловать в SavosBot Club!
+MAX_USERS=1000
+MAINTENANCE_MODE=false
+
+# Website Integration
+SYNC_INTERVAL=300
+AUTO_SYNC=true
+NOTIFICATION_ENABLED=true
+
+# Performance
+WORKER_THREADS=4
+MAX_CONNECTIONS=100
+TIMEOUT=30
