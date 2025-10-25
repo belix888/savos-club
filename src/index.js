@@ -250,8 +250,13 @@ if (process.env.BOT_TOKEN && process.env.BOT_TOKEN !== 'demo_bot_token_for_testi
     // bot.launch(); // Раскомментируйте для polling режима
 }
 
-// Главная страница - красивая страница входа
+// Главная страница - страница для пользователей
 app.get('/', (req, res) => {
+  res.sendFile(path.join(__dirname, '..', 'index.html'));
+});
+
+// Страница входа для админов
+app.get('/login', (req, res) => {
   res.sendFile(path.join(__dirname, '..', 'login.html'));
 });
 
