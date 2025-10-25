@@ -270,6 +270,79 @@
             color: white;
         }
 
+        /* Mini App Preview Section */
+        .mini-app-preview {
+            margin-bottom: 80px;
+        }
+
+        .preview-title {
+            font-size: 32px;
+            font-weight: bold;
+            text-align: center;
+            margin-bottom: 40px;
+            color: white;
+        }
+
+        .preview-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+            gap: 30px;
+        }
+
+        .preview-card {
+            background: rgba(255, 255, 255, 0.05);
+            backdrop-filter: blur(20px);
+            border-radius: 20px;
+            padding: 30px;
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            transition: all 0.3s ease;
+        }
+
+        .preview-card:hover {
+            transform: translateY(-5px);
+            background: rgba(255, 255, 255, 0.08);
+        }
+
+        .preview-icon {
+            width: 60px;
+            height: 60px;
+            background: linear-gradient(45deg, #dc2626, #ef4444);
+            border-radius: 15px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 24px;
+            margin-bottom: 20px;
+        }
+
+        .preview-card h3 {
+            font-size: 20px;
+            font-weight: bold;
+            margin-bottom: 20px;
+            color: white;
+        }
+
+        .preview-list {
+            list-style: none;
+            padding: 0;
+        }
+
+        .preview-list li {
+            color: rgba(255, 255, 255, 0.8);
+            margin-bottom: 10px;
+            padding-left: 20px;
+            position: relative;
+            line-height: 1.5;
+        }
+
+        .preview-list li:before {
+            content: "•";
+            color: #dc2626;
+            font-weight: bold;
+            position: absolute;
+            left: 0;
+        }
+
         @media (max-width: 768px) {
             .hero-title {
                 font-size: 36px;
@@ -335,51 +408,87 @@
         <!-- Features Section -->
         <section id="features" class="features-section">
             <div class="feature-card">
-                <div class="feature-icon">🤖</div>
-                <h3 class="feature-title">Telegram Bot</h3>
+                <div class="feature-icon">📅</div>
+                <h3 class="feature-title">Афиша мероприятий</h3>
                 <p class="feature-description">
-                    Удобный бот для взаимодействия с пользователями, отправки уведомлений и управления заказами
-                </p>
-            </div>
-            
-            <div class="feature-card">
-                <div class="feature-icon">📊</div>
-                <h3 class="feature-title">Аналитика</h3>
-                <p class="feature-description">
-                    Подробная статистика по пользователям, заказам и активности в реальном времени
-                </p>
-            </div>
-            
-            <div class="feature-card">
-                <div class="feature-icon">👥</div>
-                <h3 class="feature-title">Управление пользователями</h3>
-                <p class="feature-description">
-                    Полный контроль над пользователями, их ролями и правами доступа
+                    Просматривайте предстоящие события: DJ Night, Wine Tasting, Караоке-вечеринки и другие эксклюзивные мероприятия клуба
                 </p>
             </div>
             
             <div class="feature-card">
                 <div class="feature-icon">🍸</div>
-                <h3 class="feature-title">Меню и заказы</h3>
+                <h3 class="feature-title">Бар и заказы</h3>
                 <p class="feature-description">
-                    Управление меню напитков, обработка заказов и отслеживание статусов
+                    Заказывайте напитки прямо из приложения: фирменные коктейли, премиальное вино, разливное пиво и многое другое
                 </p>
             </div>
             
             <div class="feature-card">
-                <div class="feature-icon">🎉</div>
-                <h3 class="feature-title">Мероприятия</h3>
+                <div class="feature-icon">🏆</div>
+                <h3 class="feature-title">Конкурсы и призы</h3>
                 <p class="feature-description">
-                    Планирование и управление мероприятиями, конкурсами и специальными событиями
+                    Участвуйте в конкурсах: лучший костюм месяца, фотоконкурсы и выигрывайте призы от клуба
                 </p>
             </div>
             
             <div class="feature-card">
-                <div class="feature-icon">🔐</div>
-                <h3 class="feature-title">Безопасность</h3>
+                <div class="feature-icon">👤</div>
+                <h3 class="feature-title">Личный профиль</h3>
                 <p class="feature-description">
-                    Многоуровневая система безопасности с ролевым доступом и шифрованием данных
+                    Управляйте своим профилем, просматривайте историю заказов и получайте персональные предложения
                 </p>
+            </div>
+            
+            <div class="feature-card">
+                <div class="feature-icon">🤖</div>
+                <h3 class="feature-title">Telegram Bot</h3>
+                <p class="feature-description">
+                    Удобный бот для быстрого доступа к функциям клуба, получения уведомлений и управления заказами
+                </p>
+            </div>
+            
+            <div class="feature-card">
+                <div class="feature-icon">📊</div>
+                <h3 class="feature-title">Аналитика и статистика</h3>
+                <p class="feature-description">
+                    Подробная статистика по пользователям, заказам и активности в реальном времени для администраторов
+                </p>
+            </div>
+        </section>
+
+        <!-- Mini App Preview Section -->
+        <section class="mini-app-preview">
+            <h2 class="preview-title">Что вас ждет в приложении</h2>
+            <div class="preview-grid">
+                <div class="preview-card">
+                    <div class="preview-icon">📅</div>
+                    <h3>Ближайшие события</h3>
+                    <ul class="preview-list">
+                        <li>DJ Night с Resident DJ</li>
+                        <li>Wine Tasting Evening</li>
+                        <li>Караоке-вечеринка</li>
+                    </ul>
+                </div>
+                
+                <div class="preview-card">
+                    <div class="preview-icon">🍸</div>
+                    <h3>Популярные напитки</h3>
+                    <ul class="preview-list">
+                        <li>Коктейль "Савос" - 450₽</li>
+                        <li>Пиво "Клубное" - 200₽</li>
+                        <li>Вино красное - 350₽</li>
+                    </ul>
+                </div>
+                
+                <div class="preview-card">
+                    <div class="preview-icon">🏆</div>
+                    <h3>Активные конкурсы</h3>
+                    <ul class="preview-list">
+                        <li>Лучший костюм месяца</li>
+                        <li>Фотоконкурс "Моменты клуба"</li>
+                        <li>Призы от клуба</li>
+                    </ul>
+                </div>
             </div>
         </section>
 
@@ -389,19 +498,19 @@
             <div class="stats-grid">
                 <div class="stat-item">
                     <div class="stat-number" id="totalUsers">-</div>
-                    <div class="stat-label">Пользователей</div>
-                </div>
-                <div class="stat-item">
-                    <div class="stat-number" id="activeUsers">-</div>
-                    <div class="stat-label">Активных</div>
-                </div>
-                <div class="stat-item">
-                    <div class="stat-number" id="totalOrders">-</div>
-                    <div class="stat-label">Заказов</div>
+                    <div class="stat-label">Участников клуба</div>
                 </div>
                 <div class="stat-item">
                     <div class="stat-number" id="totalEvents">-</div>
                     <div class="stat-label">Мероприятий</div>
+                </div>
+                <div class="stat-item">
+                    <div class="stat-number" id="totalOrders">-</div>
+                    <div class="stat-label">Заказов в баре</div>
+                </div>
+                <div class="stat-item">
+                    <div class="stat-number" id="totalContests">-</div>
+                    <div class="stat-label">Активных конкурсов</div>
                 </div>
             </div>
         </section>
@@ -441,25 +550,25 @@
                 // Имитация загрузки статистики
                 // В реальном приложении здесь будет запрос к API
                 const stats = {
-                    totalUsers: Math.floor(Math.random() * 1000) + 500,
-                    activeUsers: Math.floor(Math.random() * 200) + 100,
-                    totalOrders: Math.floor(Math.random() * 5000) + 2000,
-                    totalEvents: Math.floor(Math.random() * 50) + 20
+                    totalUsers: Math.floor(Math.random() * 500) + 200,  // Участников клуба
+                    totalEvents: Math.floor(Math.random() * 20) + 10,   // Мероприятий
+                    totalOrders: Math.floor(Math.random() * 1000) + 500, // Заказов в баре
+                    totalContests: Math.floor(Math.random() * 5) + 2     // Активных конкурсов
                 };
 
                 // Анимация появления цифр
                 animateNumber('totalUsers', stats.totalUsers);
-                animateNumber('activeUsers', stats.activeUsers);
-                animateNumber('totalOrders', stats.totalOrders);
                 animateNumber('totalEvents', stats.totalEvents);
+                animateNumber('totalOrders', stats.totalOrders);
+                animateNumber('totalContests', stats.totalContests);
 
             } catch (error) {
                 console.error('Ошибка загрузки статистики:', error);
                 // Показываем заглушки
-                document.getElementById('totalUsers').textContent = '500+';
-                document.getElementById('activeUsers').textContent = '100+';
-                document.getElementById('totalOrders').textContent = '2000+';
-                document.getElementById('totalEvents').textContent = '20+';
+                document.getElementById('totalUsers').textContent = '200+';
+                document.getElementById('totalEvents').textContent = '10+';
+                document.getElementById('totalOrders').textContent = '500+';
+                document.getElementById('totalContests').textContent = '2+';
             }
         }
 
