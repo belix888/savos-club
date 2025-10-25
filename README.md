@@ -2,16 +2,16 @@
 
 **Telegram Bot с Mini App для управления клубом**
 
-[![Deploy with Vercel](https://vercel.com/button)](https://vercel.com/new/clone?repository-url=https://github.com/yourusername/savosbot-club)
-[![Deploy with Railway](https://railway.app/button.svg)](https://railway.app/template/your-template)
+[![Deploy with Vercel](https://vercel.com/button)](https://vercel.com/new/clone?repository-url=https://github.com/belix888/savosbot)
+[![Deploy with Railway](https://railway.app/button.svg)](https://railway.app/template/deploy?template=https://github.com/belix888/savosbot)
 
 ## 🚀 Быстрый старт
 
 ### Локальная разработка
 ```bash
 # Клонируйте репозиторий
-git clone https://github.com/yourusername/savosbot-club.git
-cd savosbot-club
+git clone https://github.com/belix888/savosbot.git
+cd savosbot
 
 # Установите зависимости
 npm install
