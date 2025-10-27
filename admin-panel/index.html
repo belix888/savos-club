@@ -227,9 +227,85 @@
             </div>
 
             <div id="super-admin" class="tab-content">
+                <!-- Управление доступами к разделам -->
                 <div class="card">
-                    <h3>🔐 Супер-админ панель</h3>
-                    <p>Расширенные функции управления системой</p>
+                    <h3>🔒 Управление доступами к разделам</h3>
+                    <p style="margin-bottom: 20px; color: rgba(255,255,255,0.8);">
+                        Блокируйте или открывайте доступ пользователей к разделам мини-приложения
+                    </p>
+                    
+                    <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(250px, 1fr)); gap: 15px;">
+                        <div style="padding: 15px; background: rgba(255,255,255,0.05); border-radius: 10px;">
+                            <div style="display: flex; align-items: center; margin-bottom: 10px;">
+                                <span style="font-size: 24px;">🍸</span>
+                                <strong style="margin-left: 10px;">Бар</strong>
+                            </div>
+                            <button class="btn btn-secondary" onclick="toggleAccess('bar')" style="width: 100%;">
+                                <span id="bar-status">Открыть</span>
+                            </button>
+                        </div>
+                        
+                        <div style="padding: 15px; background: rgba(255,255,255,0.05); border-radius: 10px;">
+                            <div style="display: flex; align-items: center; margin-bottom: 10px;">
+                                <span style="font-size: 24px;">📅</span>
+                                <strong style="margin-left: 10px;">Афиша</strong>
+                            </div>
+                            <button class="btn btn-secondary" onclick="toggleAccess('events')" style="width: 100%;">
+                                <span id="events-status">Открыть</span>
+                            </button>
+                        </div>
+                        
+                        <div style="padding: 15px; background: rgba(255,255,255,0.05); border-radius: 10px;">
+                            <div style="display: flex; align-items: center; margin-bottom: 10px;">
+                                <span style="font-size: 24px;">🏆</span>
+                                <strong style="margin-left: 10px;">Конкурсы</strong>
+                            </div>
+                            <button class="btn btn-secondary" onclick="toggleAccess('contests')" style="width: 100%;">
+                                <span id="contests-status">Открыть</span>
+                            </button>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Управление пользователями -->
+                <div class="card">
+                    <h3>👥 Управление пользователями</h3>
+                    <div id="super-users-list">
+                        <div class="loading">Загрузка пользователей...</div>
+                    </div>
+                </div>
+
+                <!-- Настройки системы -->
+                <div class="card">
+                    <h3>⚙️ Настройки системы</h3>
+                    <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 20px;">
+                        <div style="padding: 15px; background: rgba(255,255,255,0.05); border-radius: 10px;">
+                            <label style="display: block; margin-bottom: 8px; font-weight: 600;">Название клуба:</label>
+                            <input type="text" id="club-name" value="SavosBot Club" style="width: 100%; padding: 10px; border-radius: 8px; background: rgba(255,255,255,0.1); color: white; border: 1px solid rgba(255,255,255,0.2);">
+                        </div>
+                        
+                        <div style="padding: 15px; background: rgba(255,255,255,0.05); border-radius: 10px;">
+                            <label style="display: block; margin-bottom: 8px; font-weight: 600;">Приветственное сообщение:</label>
+                            <textarea id="welcome-message" rows="3" style="width: 100%; padding: 10px; border-radius: 8px; background: rgba(255,255,255,0.1); color: white; border: 1px solid rgba(255,255,255,0.2);">Добро пожаловать в SavosBot Club!</textarea>
+                        </div>
+                        
+                        <div style="padding: 15px; background: rgba(255,255,255,0.05); border-radius: 10px;">
+                            <label style="display: block; margin-bottom: 8px; font-weight: 600;">Сообщение о блокировке:</label>
+                            <textarea id="blocked-message" rows="2" style="width: 100%; padding: 10px; border-radius: 8px; background: rgba(255,255,255,0.1); color: white; border: 1px solid rgba(255,255,255,0.2);">Скоро вы узнаете, что будет</textarea>
+                        </div>
+                    </div>
+                    <button class="btn" onclick="saveSettings()" style="margin-top: 20px;">💾 Сохранить настройки</button>
+                </div>
+
+                <!-- Системные операции -->
+                <div class="card">
+                    <h3>🛠️ Системные операции</h3>
+                    <div style="display: flex; flex-direction: column; gap: 10px;">
+                        <button class="btn btn-secondary" onclick="exportData()">📥 Экспорт данных</button>
+                        <button class="btn btn-secondary" onclick="clearCache()">🗑️ Очистить кеш</button>
+                        <button class="btn btn-secondary" onclick="viewLogs()">📋 Просмотр логов</button>
+                        <button class="btn btn-danger" onclick="resetSystem()" style="background: linear-gradient(90deg, #dc2626, #b91c1c);">⚠️ Сброс системы</button>
+                    </div>
                 </div>
             </div>
         </div>
@@ -266,6 +342,146 @@
             }
         }
 
+        // Состояние доступа к разделам
+        let sectionAccess = {
+            bar: true,
+            events: true,
+            contests: true
+        };
+
+        // Функция переключения доступа к разделам
+        function toggleAccess(section) {
+            sectionAccess[section] = !sectionAccess[section];
+            const statusEl = document.getElementById(section + '-status');
+            if (statusEl) {
+                statusEl.textContent = sectionAccess[section] ? 'Закрыть' : 'Открыть';
+            }
+            
+            alert(`${sectionAccess[section] ? 'Раздел открыт' : 'Раздел заблокирован'}: ${section}`);
+            console.log(`🔒 Доступ к разделу ${section}: ${sectionAccess[section] ? 'открыт' : 'заблокирован'}`);
+        }
+
+        // Функция сохранения настроек
+        function saveSettings() {
+            const settings = {
+                clubName: document.getElementById('club-name').value,
+                welcomeMessage: document.getElementById('welcome-message').value,
+                blockedMessage: document.getElementById('blocked-message').value
+            };
+            
+            localStorage.setItem('adminSettings', JSON.stringify(settings));
+            alert('✅ Настройки сохранены!');
+            console.log('💾 Настройки сохранены:', settings);
+        }
+
+        // Функция экспорта данных
+        function exportData() {
+            const data = {
+                users: 'Список пользователей',
+                events: 'Список мероприятий',
+                drinks: 'Меню бара',
+                orders: 'История заказов'
+            };
+            
+            const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = 'savosbot-export-' + new Date().toISOString() + '.json';
+            a.click();
+            
+            alert('✅ Данные экспортированы!');
+        }
+
+        // Функция очистки кеша
+        function clearCache() {
+            if (confirm('Очистить весь кеш?')) {
+                localStorage.clear();
+                sessionStorage.clear();
+                alert('✅ Кеш очищен!');
+            }
+        }
+
+        // Функция просмотра логов
+        function viewLogs() {
+            alert('📋 Логирование будет доступно в полной версии.\n\nВключает:\n- Логи действий пользователей\n- Логи ошибок\n- Аудит изменений');
+        }
+
+        // Функция сброса системы
+        function resetSystem() {
+            if (confirm('⚠️ ВНИМАНИЕ! Вы уверены, что хотите сбросить систему?\n\nЭто действие удалит ВСЕ данные!')) {
+                if (confirm('Последняя попытка отменить:\n\nПродолжить сброс?')) {
+                    alert('✅ Система сброшена (в демо-режиме это безопасно)');
+                    console.log('⚠️ Сброс системы');
+                }
+            }
+        }
+
+        // Загрузка пользователей в супер-админке
+        function loadSuperUsers() {
+            const mockUsers = [
+                { id: 1, name: 'Иван Иванов', role: 'User', status: 'Active' },
+                { id: 2, name: 'Мария Петрова', role: 'Resident', status: 'Active' },
+                { id: 3, name: 'Александр Сидоров', role: 'Admin', status: 'Active' },
+                { id: 4, name: 'Елена Козлова', role: 'User', status: 'Banned' },
+                { id: 5, name: 'Дмитрий Волков', role: 'Waiter', status: 'Active' }
+            ];
+
+            const container = document.getElementById('super-users-list');
+            container.innerHTML = `
+                <table style="width: 100%; border-collapse: collapse;">
+                    <thead>
+                        <tr style="background: rgba(255,255,255,0.1);">
+                            <th style="padding: 10px; text-align: left;">ID</th>
+                            <th style="padding: 10px; text-align: left;">Имя</th>
+                            <th style="padding: 10px; text-align: left;">Роль</th>
+                            <th style="padding: 10px; text-align: left;">Статус</th>
+                            <th style="padding: 10px; text-align: left;">Действия</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        ${mockUsers.map(user => `
+                            <tr style="border-bottom: 1px solid rgba(255,255,255,0.1);">
+                                <td style="padding: 10px;">${user.id}</td>
+                                <td style="padding: 10px;">${user.name}</td>
+                                <td style="padding: 10px;">${user.role}</td>
+                                <td style="padding: 10px;">
+                                    <span style="padding: 4px 12px; border-radius: 15px; background: ${user.status === 'Active' ? '#22c55e' : '#ef4444'};">
+                                        ${user.status}
+                                    </span>
+                                </td>
+                                <td style="padding: 10px;">
+                                    <button class="btn btn-secondary" style="padding: 5px 15px; font-size: 12px;" onclick="editUser(${user.id})">✏️ Редактировать</button>
+                                    ${user.status === 'Active' ? 
+                                        `<button class="btn btn-danger" style="padding: 5px 15px; font-size: 12px; background: #dc2626;" onclick="banUser(${user.id})">🚫 Заблокировать</button>` :
+                                        `<button class="btn btn-secondary" style="padding: 5px 15px; font-size: 12px;" onclick="unbanUser(${user.id})">✅ Разблокировать</button>`
+                                    }
+                                </td>
+                            </tr>
+                        `).join('')}
+                    </tbody>
+                </table>
+            `;
+        }
+
+        function editUser(id) {
+            alert(`✏️ Редактирование пользователя #${id}\n\nФункция будет доступна в полной версии`);
+        }
+
+        function banUser(id) {
+            if (confirm(`🚫 Заблокировать пользователя #${id}?`)) {
+                alert(`✅ Пользователь #${id} заблокирован`);
+                loadSuperUsers();
+            }
+        }
+
+        function unbanUser(id) {
+            if (confirm(`✅ Разблокировать пользователя #${id}?`)) {
+                alert(`✅ Пользователь #${id} разблокирован`);
+                loadSuperUsers();
+            }
+        }
+
         // Инициализация
         document.addEventListener('DOMContentLoaded', function() {
             console.log('✅ DOM загружен, инициализация...');
@@ -298,6 +514,11 @@
                 tab.addEventListener('click', function(e) {
                     console.log(`🔥 Клик на вкладке: ${tabName}`);
                     switchTab(tabName);
+                    
+                    // Загружаем данные при переключении
+                    if (tabName === 'super-admin') {
+                        loadSuperUsers();
+                    }
                 });
             });
             
