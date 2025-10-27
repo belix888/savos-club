@@ -345,7 +345,7 @@
                                 <span style="font-size: 24px;">🍸</span>
                                 <strong style="margin-left: 10px;">Бар</strong>
                             </div>
-                            <button class="btn btn-secondary" onclick="toggleAccess('bar')" style="width: 100%;">
+                            <button class="btn btn-secondary" data-access="bar" style="width: 100%;">
                                 <span id="bar-status">Открыть</span>
                             </button>
                         </div>
@@ -355,7 +355,7 @@
                                 <span style="font-size: 24px;">📅</span>
                                 <strong style="margin-left: 10px;">Афиша</strong>
                             </div>
-                            <button class="btn btn-secondary" onclick="toggleAccess('events')" style="width: 100%;">
+                            <button class="btn btn-secondary" data-access="events" style="width: 100%;">
                                 <span id="events-status">Открыть</span>
                             </button>
                         </div>
@@ -365,7 +365,7 @@
                                 <span style="font-size: 24px;">🏆</span>
                                 <strong style="margin-left: 10px;">Конкурсы</strong>
                             </div>
-                            <button class="btn btn-secondary" onclick="toggleAccess('contests')" style="width: 100%;">
+                            <button class="btn btn-secondary" data-access="contests" style="width: 100%;">
                                 <span id="contests-status">Открыть</span>
                             </button>
                         </div>
@@ -399,17 +399,17 @@
                             <textarea id="blocked-message" rows="2" style="width: 100%; padding: 10px; border-radius: 8px; background: rgba(255,255,255,0.1); color: white; border: 1px solid rgba(255,255,255,0.2);">Скоро вы узнаете, что будет</textarea>
                         </div>
                     </div>
-                    <button class="btn" onclick="saveSettings()" style="margin-top: 20px;">💾 Сохранить настройки</button>
+                    <button class="btn" data-action="save-settings" style="margin-top: 20px;">💾 Сохранить настройки</button>
                 </div>
 
                 <!-- Системные операции -->
                 <div class="card">
                     <h3>🛠️ Системные операции</h3>
                     <div style="display: flex; flex-direction: column; gap: 10px;">
-                        <button class="btn btn-secondary" onclick="exportData()">📥 Экспорт данных</button>
-                        <button class="btn btn-secondary" onclick="clearCache()">🗑️ Очистить кеш</button>
-                        <button class="btn btn-secondary" onclick="viewLogs()">📋 Просмотр логов</button>
-                        <button class="btn btn-danger" onclick="resetSystem()" style="background: linear-gradient(90deg, #dc2626, #b91c1c);">⚠️ Сброс системы</button>
+                        <button class="btn btn-secondary" data-action="export">📥 Экспорт данных</button>
+                        <button class="btn btn-secondary" data-action="clear-cache">🗑️ Очистить кеш</button>
+                        <button class="btn btn-secondary" data-action="view-logs">📋 Просмотр логов</button>
+                        <button class="btn btn-danger" data-action="reset" style="background: linear-gradient(90deg, #dc2626, #b91c1c);">⚠️ Сброс системы</button>
                     </div>
                 </div>
             </div>
@@ -663,6 +663,38 @@
                     // Загружаем данные при переключении
                     if (tabName === 'super-admin') {
                         loadSuperUsers();
+                    }
+                });
+            });
+            
+            // Добавляем обработчики для кнопок управления доступом
+            document.querySelectorAll('[data-access]').forEach(function(btn) {
+                const section = btn.getAttribute('data-access');
+                btn.addEventListener('click', function() {
+                    toggleAccess(section);
+                });
+            });
+            
+            // Добавляем обработчики для системных операций
+            document.querySelectorAll('[data-action]').forEach(function(btn) {
+                const action = btn.getAttribute('data-action');
+                btn.addEventListener('click', function() {
+                    switch(action) {
+                        case 'save-settings':
+                            saveSettings();
+                            break;
+                        case 'export':
+                            exportData();
+                            break;
+                        case 'clear-cache':
+                            clearCache();
+                            break;
+                        case 'view-logs':
+                            viewLogs();
+                            break;
+                        case 'reset':
+                            resetSystem();
+                            break;
                     }
                 });
             });
