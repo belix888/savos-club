@@ -687,35 +687,37 @@
         }
 
         function switchTab(tabName) {
-            console.log('Переключение на вкладку:', tabName);
+            console.log('🔥 switchTab вызван с параметром:', tabName);
             
             // Убираем активный класс со всех вкладок и контента
             document.querySelectorAll('.nav-tab').forEach(tab => {
                 tab.classList.remove('active');
-                console.log('Убран активный класс с вкладки:', tab.dataset.tab);
             });
             
             document.querySelectorAll('.tab-content').forEach(content => {
                 content.classList.remove('active');
-                console.log('Убран активный класс с контента:', content.id);
             });
             
             // Активируем выбранную вкладку и контент
             const activeTab = document.querySelector(`[data-tab="${tabName}"]`);
             const activeContent = document.getElementById(tabName);
             
+            console.log('🔍 Найдена вкладка:', activeTab);
+            console.log('🔍 Найден контент:', activeContent);
+            
             if (activeTab) {
                 activeTab.classList.add('active');
-                console.log('Добавлен активный класс на вкладку:', tabName);
+                console.log('✅ Вкладка активирована');
             } else {
-                console.error('Вкладка не найдена:', tabName);
+                console.error('❌ Вкладка не найдена:', tabName);
+                return;
             }
             
             if (activeContent) {
                 activeContent.classList.add('active');
-                console.log('Добавлен активный класс на контент:', tabName);
+                console.log('✅ Контент активирован');
             } else {
-                console.error('Контент не найден:', tabName);
+                console.error('❌ Контент не найден:', tabName);
             }
         }
 
@@ -1735,12 +1737,15 @@
             }
             
             // Добавляем обработчики для вкладок
-            console.log('Добавляем обработчики для вкладок');
-            document.querySelectorAll('.nav-tab').forEach(tab => {
-                console.log('Найдена вкладка:', tab.dataset.tab);
-                tab.addEventListener('click', () => {
-                    console.log('Клик по вкладке:', tab.dataset.tab);
-                    switchTab(tab.dataset.tab);
+            console.log('🎯 Добавляем обработчики для вкладок');
+            document.querySelectorAll('.nav-tab').forEach((tab, index) => {
+                const tabName = tab.dataset.tab;
+                console.log(`✅ Обработчик ${index + 1} для вкладки: ${tabName}`);
+                tab.addEventListener('click', function(e) {
+                    console.log('🔥 Клик по вкладке:', tabName);
+                    e.preventDefault();
+                    e.stopPropagation();
+                    switchTab(tabName);
                 });
             });
             
