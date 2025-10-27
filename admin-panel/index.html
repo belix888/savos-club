@@ -681,6 +681,123 @@
             console.log('⚠️ Сброс системы');
         }
 
+        // Загрузка дашборда
+        async function loadDashboard() {
+            try {
+                const response = await fetch('/api/statistics');
+                const data = await response.json();
+                
+                document.getElementById('stats-grid').innerHTML = `
+                    <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 20px;">
+                        <div style="background: rgba(255,255,255,0.05); padding: 20px; border-radius: 10px;">
+                            <div style="font-size: 32px; font-weight: bold; color: #ef4444; margin-bottom: 10px;">${data.total_users || 0}</div>
+                            <div style="color: rgba(255,255,255,0.7);">Всего пользователей</div>
+                        </div>
+                        <div style="background: rgba(255,255,255,0.05); padding: 20px; border-radius: 10px;">
+                            <div style="font-size: 32px; font-weight: bold; color: #ef4444; margin-bottom: 10px;">${data.active_users || 0}</div>
+                            <div style="color: rgba(255,255,255,0.7);">Активных</div>
+                        </div>
+                        <div style="background: rgba(255,255,255,0.05); padding: 20px; border-radius: 10px;">
+                            <div style="font-size: 32px; font-weight: bold; color: #ef4444; margin-bottom: 10px;">${data.today_users || 0}</div>
+                            <div style="color: rgba(255,255,255,0.7);">Новых сегодня</div>
+                        </div>
+                        <div style="background: rgba(255,255,255,0.05); padding: 20px; border-radius: 10px;">
+                            <div style="font-size: 32px; font-weight: bold; color: #ef4444; margin-bottom: 10px;">${data.total_orders || 0}</div>
+                            <div style="color: rgba(255,255,255,0.7);">Заказов</div>
+                        </div>
+                    </div>
+                `;
+            } catch (error) {
+                console.error('Ошибка загрузки дашборда:', error);
+                document.getElementById('stats-grid').innerHTML = '<div class="error">Ошибка загрузки статистики</div>';
+            }
+        }
+
+        // Загрузка пользователей
+        async function loadUsers() {
+            try {
+                const response = await fetch('/api/users');
+                const users = await response.json();
+                
+                const usersList = document.getElementById('users-list');
+                if (!users || users.length === 0) {
+                    usersList.innerHTML = '<p style="text-align: center; color: rgba(255,255,255,0.7);">Нет пользователей</p>';
+                    return;
+                }
+                
+                usersList.innerHTML = users.map(user => `
+                    <div style="padding: 15px; background: rgba(255,255,255,0.05); border-radius: 10px; margin-bottom: 10px;">
+                        <div style="font-weight: 600; color: #ef4444; margin-bottom: 5px;">${user.first_name} ${user.last_name || ''}</div>
+                        <div style="color: rgba(255,255,255,0.7); font-size: 14px;">@${user.username || 'нет username'}</div>
+                        <button onclick="editUserData(${user.id})" style="margin-top: 10px; padding: 8px 15px; background: #ef4444; border: none; border-radius: 8px; color: white; cursor: pointer;">Редактировать</button>
+                    </div>
+                `).join('');
+            } catch (error) {
+                console.error('Ошибка загрузки пользователей:', error);
+                document.getElementById('users-list').innerHTML = '<div class="error">Ошибка загрузки пользователей</div>';
+            }
+        }
+
+        // Загрузка мероприятий
+        async function loadEventsData() {
+            try {
+                const response = await fetch('/api/events');
+                const events = await response.json();
+                
+                document.getElementById('events-list').innerHTML = events.map(event => `
+                    <div style="padding: 15px; background: rgba(255,255,255,0.05); border-radius: 10px; margin-bottom: 10px;">
+                        <div style="font-weight: 600; color: #ef4444; margin-bottom: 5px;">${event.title}</div>
+                        <div style="color: rgba(255,255,255,0.7); font-size: 14px;">${new Date(event.date).toLocaleDateString('ru-RU')}</div>
+                    </div>
+                `).join('');
+            } catch (error) {
+                console.error('Ошибка загрузки мероприятий:', error);
+                document.getElementById('events-list').innerHTML = '<div class="error">Ошибка загрузки мероприятий</div>';
+            }
+        }
+
+        // Загрузка напитков
+        async function loadDrinksData() {
+            try {
+                const response = await fetch('/api/drinks');
+                const drinks = await response.json();
+                
+                document.getElementById('drinks-list').innerHTML = drinks.map(drink => `
+                    <div style="padding: 15px; background: rgba(255,255,255,0.05); border-radius: 10px; margin-bottom: 10px;">
+                        <div style="font-weight: 600; color: #ef4444; margin-bottom: 5px;">${drink.name}</div>
+                        <div style="color: rgba(255,255,255,0.7); font-size: 14px;">${drink.price} ₽</div>
+                    </div>
+                `).join('');
+            } catch (error) {
+                console.error('Ошибка загрузки напитков:', error);
+                document.getElementById('drinks-list').innerHTML = '<div class="error">Ошибка загрузки напитков</div>';
+            }
+        }
+
+        // Загрузка заказов
+        async function loadOrdersData() {
+            try {
+                const response = await fetch('/api/orders');
+                const orders = await response.json();
+                
+                const ordersList = document.getElementById('orders-list');
+                if (!orders || orders.length === 0) {
+                    ordersList.innerHTML = '<p style="text-align: center; color: rgba(255,255,255,0.7);">Нет заказов</p>';
+                    return;
+                }
+                
+                ordersList.innerHTML = orders.map(order => `
+                    <div style="padding: 15px; background: rgba(255,255,255,0.05); border-radius: 10px; margin-bottom: 10px;">
+                        <div style="font-weight: 600; color: #ef4444; margin-bottom: 5px;">Заказ #${order.id}</div>
+                        <div style="color: rgba(255,255,255,0.7); font-size: 14px;">${order.total_amount || 0} ₽ | ${order.status}</div>
+                    </div>
+                `).join('');
+            } catch (error) {
+                console.error('Ошибка загрузки заказов:', error);
+                document.getElementById('orders-list').innerHTML = '<div class="error">Ошибка загрузки заказов</div>';
+            }
+        }
+
         // Загрузка пользователей в супер-админке
         function loadSuperUsers() {
             const container = document.getElementById('super-users-list');
@@ -818,6 +935,9 @@
                 localStorage.setItem('sectionAccess', JSON.stringify(sectionAccess));
             }
             
+            // Загружаем дашборд при старте
+            loadDashboard();
+            
             // Кнопка тест
             const testBtn = document.getElementById('test-btn');
             if (testBtn) {
@@ -849,8 +969,25 @@
                     switchTab(tabName);
                     
                     // Загружаем данные при переключении
-                    if (tabName === 'super-admin') {
-                        loadSuperUsers();
+                    switch(tabName) {
+                        case 'dashboard':
+                            loadDashboard();
+                            break;
+                        case 'users':
+                            loadUsers();
+                            break;
+                        case 'events':
+                            loadEventsData();
+                            break;
+                        case 'drinks':
+                            loadDrinksData();
+                            break;
+                        case 'orders':
+                            loadOrdersData();
+                            break;
+                        case 'super-admin':
+                            loadSuperUsers();
+                            break;
                     }
                 });
             });

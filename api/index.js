@@ -240,29 +240,79 @@ app.post('/api/statistics', (req, res) => {
 
 app.get('/api/statistics', (req, res) => {
   try {
-    const authHeader = req.headers.authorization;
-    
-    // Check API key
-    if (!authHeader || !authHeader.startsWith('Bearer ')) {
-      return res.status(401).json({ error: 'Unauthorized' });
-    }
-    
-    const apiKey = authHeader.substring(7);
-    if (apiKey !== process.env.API_KEY) {
-      return res.status(401).json({ error: 'Invalid API key' });
-    }
-    
     // Return mock statistics (in production, fetch from database)
     res.json({
       total_users: 150,
       active_users: 120,
       today_users: 5,
+      total_orders: 234,
       last_update: new Date().toISOString(),
       source: 'website'
     });
     
   } catch (error) {
     console.error('❌ Error fetching statistics:', error);
+    res.status(500).json({ error: 'Internal server error' });
+  }
+});
+
+// Users list endpoint
+app.get('/api/users', (req, res) => {
+  try {
+    // Return mock users (in production, fetch from database)
+    res.json([
+      { id: 1, first_name: 'Иван', last_name: 'Иванов', username: 'ivan_ivanov', is_resident: false, is_admin: false },
+      { id: 2, first_name: 'Мария', last_name: 'Петрова', username: 'maria_petrova', is_resident: true, is_admin: false },
+      { id: 3, first_name: 'Александр', last_name: 'Сидоров', username: 'alex_sidorov', is_resident: false, is_admin: true },
+      { id: 4, first_name: 'Елена', last_name: 'Козлова', username: 'elena_kozlova', is_resident: true, is_admin: false },
+      { id: 5, first_name: 'Дмитрий', last_name: 'Волков', username: 'dmitry_volkov', is_resident: false, is_admin: false, is_waiter: true }
+    ]);
+  } catch (error) {
+    console.error('❌ Error fetching users:', error);
+    res.status(500).json({ error: 'Internal server error' });
+  }
+});
+
+// Events endpoint
+app.get('/api/events', (req, res) => {
+  try {
+    res.json([
+      { id: 1, title: 'DJ Night с Resident DJ', date: '2024-11-15T22:00:00Z', price: 800, is_active: 1 },
+      { id: 2, title: 'Wine Tasting Evening', date: '2024-11-20T19:00:00Z', price: 1200, is_active: 1 },
+      { id: 3, title: 'Караоке-вечеринка', date: '2024-11-25T20:00:00Z', price: 0, is_active: 1 }
+    ]);
+  } catch (error) {
+    console.error('❌ Error fetching events:', error);
+    res.status(500).json({ error: 'Internal server error' });
+  }
+});
+
+// Drinks endpoint
+app.get('/api/drinks', (req, res) => {
+  try {
+    res.json([
+      { id: 1, name: 'Коктейль "Савос"', price: 450, category: 'Коктейли', is_available: 1 },
+      { id: 2, name: 'Пиво "Клубное"', price: 200, category: 'Пиво', is_available: 1 },
+      { id: 3, name: 'Вино красное', price: 350, category: 'Вино', is_available: 1 },
+      { id: 4, name: 'Водка премиум', price: 500, category: 'Крепкие напитки', is_available: 1 },
+      { id: 5, name: 'Кофе', price: 150, category: 'Горячие напитки', is_available: 1 }
+    ]);
+  } catch (error) {
+    console.error('❌ Error fetching drinks:', error);
+    res.status(500).json({ error: 'Internal server error' });
+  }
+});
+
+// Orders endpoint
+app.get('/api/orders', (req, res) => {
+  try {
+    res.json([
+      { id: 1, total_amount: 650, status: 'completed', created_at: '2024-10-25T18:30:00Z' },
+      { id: 2, total_amount: 1200, status: 'new', created_at: '2024-10-25T19:15:00Z' },
+      { id: 3, total_amount: 450, status: 'taken', created_at: '2024-10-26T20:00:00Z' }
+    ]);
+  } catch (error) {
+    console.error('❌ Error fetching orders:', error);
     res.status(500).json({ error: 'Internal server error' });
   }
 });
