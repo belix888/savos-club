@@ -239,6 +239,82 @@
         .toast-close:hover {
             opacity: 1;
         }
+
+        /* Модальные окна */
+        .modal {
+            display: none;
+            position: fixed;
+            z-index: 9999;
+            left: 0;
+            top: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0, 0, 0, 0.8);
+            backdrop-filter: blur(5px);
+        }
+
+        .modal-content {
+            background: linear-gradient(135deg, #1a1a1a 0%, #2d1b1b 100%);
+            margin: 5% auto;
+            padding: 30px;
+            border-radius: 15px;
+            width: 90%;
+            max-width: 600px;
+            border: 1px solid rgba(255, 255, 255, 0.2);
+            box-shadow: 0 10px 40px rgba(0, 0, 0, 0.5);
+        }
+
+        .modal-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 20px;
+        }
+
+        .modal-header h2 {
+            color: #ef4444;
+        }
+
+        .close {
+            color: rgba(255, 255, 255, 0.7);
+            font-size: 28px;
+            font-weight: bold;
+            cursor: pointer;
+            transition: color 0.2s;
+        }
+
+        .close:hover {
+            color: #ef4444;
+        }
+
+        .form-group {
+            margin-bottom: 20px;
+        }
+
+        .form-group label {
+            display: block;
+            margin-bottom: 8px;
+            font-weight: 600;
+            color: rgba(255, 255, 255, 0.9);
+        }
+
+        .form-group input,
+        .form-group select {
+            width: 100%;
+            padding: 12px 15px;
+            border: 1px solid rgba(255, 255, 255, 0.3);
+            border-radius: 8px;
+            background: rgba(255, 255, 255, 0.1);
+            color: white;
+            font-size: 14px;
+            transition: border-color 0.3s;
+        }
+
+        .form-group input:focus,
+        .form-group select:focus {
+            outline: none;
+            border-color: #ef4444;
+        }
     </style>
 </head>
 <body>
@@ -419,6 +495,43 @@
     <!-- Контейнер для toast уведомлений -->
     <div class="toast-container" id="toast-container"></div>
 
+    <!-- Модальное окно редактирования пользователя -->
+    <div class="modal" id="edit-user-modal" style="display: none;">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h2>✏️ Редактирование пользователя</h2>
+                <span class="close" onclick="closeEditUserModal()">&times;</span>
+            </div>
+            <form id="edit-user-form">
+                <div class="form-group">
+                    <label>ID пользователя</label>
+                    <input type="text" id="edit-user-id" readonly style="background: rgba(255,255,255,0.05);">
+                </div>
+                <div class="form-group">
+                    <label>Имя</label>
+                    <input type="text" id="edit-user-name" required>
+                </div>
+                <div class="form-group">
+                    <label>Роль</label>
+                    <select id="edit-user-role" required>
+                        <option value="User">Пользователь</option>
+                        <option value="Resident">Резидент</option>
+                        <option value="Waiter">Официант</option>
+                        <option value="Admin">Администратор</option>
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label>Статус</label>
+                    <select id="edit-user-status" required>
+                        <option value="Active">Активен</option>
+                        <option value="Banned">Заблокирован</option>
+                    </select>
+                </div>
+                <button type="submit" class="btn">💾 Сохранить изменения</button>
+            </form>
+        </div>
+    </div>
+
     <script>
         console.log('✅ Скрипт загружен');
 
@@ -567,14 +680,6 @@
 
         // Загрузка пользователей в супер-админке
         function loadSuperUsers() {
-            const mockUsers = [
-                { id: 1, name: 'Иван Иванов', role: 'User', status: 'Active' },
-                { id: 2, name: 'Мария Петрова', role: 'Resident', status: 'Active' },
-                { id: 3, name: 'Александр Сидоров', role: 'Admin', status: 'Active' },
-                { id: 4, name: 'Елена Козлова', role: 'User', status: 'Banned' },
-                { id: 5, name: 'Дмитрий Волков', role: 'Waiter', status: 'Active' }
-            ];
-
             const container = document.getElementById('super-users-list');
             container.innerHTML = `
                 <table style="width: 100%; border-collapse: collapse;">
@@ -588,7 +693,7 @@
                         </tr>
                     </thead>
                     <tbody>
-                        ${mockUsers.map(user => `
+                        ${usersData.map(user => `
                             <tr style="border-bottom: 1px solid rgba(255,255,255,0.1);">
                                 <td style="padding: 10px;">${user.id}</td>
                                 <td style="padding: 10px;">${user.name}</td>
@@ -612,19 +717,79 @@
             `;
         }
 
+        // Данные пользователей (хранятся в памяти)
+        let usersData = [
+            { id: 1, name: 'Иван Иванов', role: 'User', status: 'Active' },
+            { id: 2, name: 'Мария Петрова', role: 'Resident', status: 'Active' },
+            { id: 3, name: 'Александр Сидоров', role: 'Admin', status: 'Active' },
+            { id: 4, name: 'Елена Козлова', role: 'User', status: 'Banned' },
+            { id: 5, name: 'Дмитрий Волков', role: 'Waiter', status: 'Active' }
+        ];
+
         function editUser(id) {
-            showToast('info', 'Редактирование', `Функция будет доступна в полной версии`);
+            const user = usersData.find(u => u.id === id);
+            if (!user) {
+                showToast('error', 'Ошибка', 'Пользователь не найден');
+                return;
+            }
+            
+            // Заполняем форму
+            document.getElementById('edit-user-id').value = user.id;
+            document.getElementById('edit-user-name').value = user.name;
+            document.getElementById('edit-user-role').value = user.role;
+            document.getElementById('edit-user-status').value = user.status;
+            
+            // Показываем модальное окно
+            document.getElementById('edit-user-modal').style.display = 'block';
+        }
+
+        function closeEditUserModal() {
+            document.getElementById('edit-user-modal').style.display = 'none';
         }
 
         function banUser(id) {
-            showToast('warning', 'Пользователь заблокирован', `ID: ${id}`);
-            loadSuperUsers();
+            const user = usersData.find(u => u.id === id);
+            if (user) {
+                user.status = 'Banned';
+                showToast('warning', 'Пользователь заблокирован', `${user.name} (ID: ${id})`);
+                loadSuperUsers();
+            }
         }
 
         function unbanUser(id) {
-            showToast('success', 'Пользователь разблокирован', `ID: ${id}`);
-            loadSuperUsers();
+            const user = usersData.find(u => u.id === id);
+            if (user) {
+                user.status = 'Active';
+                showToast('success', 'Пользователь разблокирован', `${user.name} (ID: ${id})`);
+                loadSuperUsers();
+            }
         }
+
+        // Обработчик формы редактирования пользователя
+        document.addEventListener('DOMContentLoaded', function() {
+            const editForm = document.getElementById('edit-user-form');
+            if (editForm) {
+                editForm.addEventListener('submit', function(e) {
+                    e.preventDefault();
+                    
+                    const userId = parseInt(document.getElementById('edit-user-id').value);
+                    const userName = document.getElementById('edit-user-name').value;
+                    const userRole = document.getElementById('edit-user-role').value;
+                    const userStatus = document.getElementById('edit-user-status').value;
+                    
+                    const user = usersData.find(u => u.id === userId);
+                    if (user) {
+                        user.name = userName;
+                        user.role = userRole;
+                        user.status = userStatus;
+                        
+                        showToast('success', 'Изменения сохранены', `${userName} обновлен`);
+                        closeEditUserModal();
+                        loadSuperUsers();
+                    }
+                });
+            }
+        });
 
         // Инициализация
         document.addEventListener('DOMContentLoaded', function() {
