@@ -382,10 +382,19 @@
         let currentUser = null;
         let cart = {};
         let authToken = null;
+        let userActions = {
+            bookings: [],  // Бронирования мероприятий
+            orders: [],    // Заказы из бара
+            contestParticipants: [],  // Участия в конкурсах
+            visitedEvents: []  // Посещенные мероприятия
+        };
 
         // Инициализация приложения
         async function initApp() {
             try {
+                // Загружаем сохраненные действия
+                loadUserActions();
+                
                 // Получаем данные пользователя из Telegram
                 const userData = tg.initDataUnsafe.user;
                 
@@ -464,12 +473,15 @@
                     <div class="card" style="margin-bottom: 15px;">
                         <h4 style="color: #ef4444; margin-bottom: 10px;">${event.title}</h4>
                         <p style="margin-bottom: 10px; color: rgba(255,255,255,0.8);">${event.description || ''}</p>
-                        <div style="display: flex; justify-content: space-between; align-items: center;">
+                        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px;">
                             <span style="color: rgba(255,255,255,0.7);">
                                 📅 ${new Date(event.date).toLocaleDateString('ru-RU')}
                             </span>
                             ${event.price > 0 ? `<span style="font-weight: 600; color: #ef4444;">${event.price} ₽</span>` : '<span style="color: #22c55e;">Бесплатно</span>'}
                         </div>
+                        <button class="btn" onclick="bookEvent(${event.id}, '${event.title}', ${event.price})" style="width: 100%;">
+                            ✨ Забронировать место
+                        </button>
                     </div>
                 `).join('');
             } catch (error) {
@@ -606,6 +618,13 @@
                     quantity: quantity
                 }));
 
+                const order = {
+                    id: Date.now(),
+                    items: items,
+                    created_at: new Date().toISOString(),
+                    status: 'new'
+                };
+
                 const response = await fetch('/api/orders', {
                     method: 'POST',
                     headers: {
@@ -616,10 +635,15 @@
                 });
 
                 if (response.ok) {
+                    // Добавляем заказ в историю
+                    userActions.orders.push(order);
+                    saveUserActions();
+                    
                     cart = {};
                     updateCartSummary();
                     loadDrinks();
                     loadOrders();
+                    loadProfile();
                     
                     // Показываем уведомление
                     tg.showAlert('Заказ успешно оформлен! Официант скоро подойдет к вашему столику.');
@@ -670,7 +694,7 @@
                             </span>
                             ${contest.prize ? `<br><span style="color: #f59e0b;">🏆 Приз: ${contest.prize}</span>` : ''}
                         </div>
-                        <button class="btn" onclick="participateInContest(${contest.id})">
+                        <button class="btn" onclick="participateInContest(${contest.id}, '${contest.title}')">
                             🎯 Участвовать
                         </button>
                     </div>
@@ -681,10 +705,53 @@
             }
         }
 
+        // Бронирование мероприятия
+        async function bookEvent(eventId, eventTitle, price) {
+            const guests = prompt('На сколько человек бронируете место?', '1');
+            if (!guests || guests < 1) return;
+            
+            const booking = {
+                id: Date.now(),
+                event_id: eventId,
+                event_title: eventTitle,
+                guests: parseInt(guests),
+                price: price,
+                booked_at: new Date().toISOString(),
+                status: 'confirmed'
+            };
+            
+            // Добавляем в историю действий
+            userActions.bookings.push(booking);
+            
+            // Сохраняем в localStorage
+            saveUserActions();
+            
+            // Показываем подтверждение
+            tg.showAlert(`✅ Место забронировано!\n\nСобытие: ${eventTitle}\nГостей: ${guests}\nСумма: ${price * guests} ₽`);
+            
+            // Обновляем профиль
+            loadProfile();
+        }
+
         // Участие в конкурсе
-        async function participateInContest(contestId) {
+        async function participateInContest(contestId, contestTitle) {
             const submission = prompt('Опишите вашу заявку на участие:');
             if (!submission) return;
+
+            const participation = {
+                id: Date.now(),
+                contest_id: contestId,
+                contest_title: contestTitle,
+                submission: submission,
+                participated_at: new Date().toISOString(),
+                status: 'pending'
+            };
+            
+            // Добавляем в историю действий
+            userActions.contestParticipants.push(participation);
+            
+            // Сохраняем в localStorage
+            saveUserActions();
 
             try {
                 const response = await fetch(`/api/contests/${contestId}/participate`, {
@@ -697,15 +764,30 @@
                 });
 
                 if (response.ok) {
-                    tg.showAlert('Заявка на участие подана успешно!');
-                    loadContests();
+                    tg.showAlert('🎯 Ваша заявка на участие принята!');
+                    
+                    // Обновляем профиль
+                    loadProfile();
                 } else {
                     const error = await response.json();
-                    showError(error.error || 'Ошибка подачи заявки');
+                    showError(error.error || 'Ошибка участия в конкурсе');
                 }
             } catch (error) {
                 console.error('Ошибка участия в конкурсе:', error);
-                showError('Ошибка подачи заявки');
+                showError('Ошибка отправки заявки');
+            }
+        }
+
+        // Сохранение действий пользователя
+        function saveUserActions() {
+            localStorage.setItem('userActions', JSON.stringify(userActions));
+        }
+
+        // Загрузка действий пользователя
+        function loadUserActions() {
+            const saved = localStorage.getItem('userActions');
+            if (saved) {
+                userActions = JSON.parse(saved);
             }
         }
 
@@ -719,6 +801,9 @@
                     document.getElementById('profile-info').innerHTML = '<div class="error">Пользователь не найден</div>';
                     return;
                 }
+                
+                // Загружаем действия пользователя
+                loadUserActions();
                 
                 const profileInfo = document.getElementById('profile-info');
                 profileInfo.innerHTML = `
@@ -743,6 +828,37 @@
                             <span class="profile-value">${new Date(user.created_at).toLocaleDateString('ru-RU')}</span>
                         </div>
                         ` : ''}
+                        
+                        <div style="margin-top: 20px; padding-top: 20px; border-top: 2px solid rgba(255,255,255,0.2);">
+                            <h4 style="color: #ef4444; margin-bottom: 15px;">📊 Ваша активность</h4>
+                            
+                            <div style="display: flex; justify-content: space-around; margin-bottom: 15px;">
+                                <div style="text-align: center;">
+                                    <div style="font-size: 24px; color: #ef4444; font-weight: bold;">${userActions.bookings.length}</div>
+                                    <div style="font-size: 12px; color: rgba(255,255,255,0.7);">Бронирований</div>
+                                </div>
+                                <div style="text-align: center;">
+                                    <div style="font-size: 24px; color: #ef4444; font-weight: bold;">${userActions.orders.length}</div>
+                                    <div style="font-size: 12px; color: rgba(255,255,255,0.7);">Заказов</div>
+                                </div>
+                                <div style="text-align: center;">
+                                    <div style="font-size: 24px; color: #ef4444; font-weight: bold;">${userActions.contestParticipants.length}</div>
+                                    <div style="font-size: 12px; color: rgba(255,255,255,0.7);">Конкурсов</div>
+                                </div>
+                            </div>
+                            
+                            ${userActions.bookings.length > 0 ? `
+                            <div style="margin-top: 15px;">
+                                <h5 style="color: rgba(255,255,255,0.9); margin-bottom: 10px; font-size: 14px;">📅 Последние бронирования:</h5>
+                                ${userActions.bookings.slice(-3).map(booking => `
+                                    <div style="padding: 8px; background: rgba(255,255,255,0.05); border-radius: 8px; margin-bottom: 8px;">
+                                        <div style="font-weight: 600; color: #ef4444;">${booking.event_title}</div>
+                                        <div style="font-size: 12px; color: rgba(255,255,255,0.7);">Гостей: ${booking.guests} | ${new Date(booking.booked_at).toLocaleDateString('ru-RU')}</div>
+                                    </div>
+                                `).join('')}
+                            </div>
+                            ` : ''}
+                        </div>
                     </div>
                 `;
             } catch (error) {
