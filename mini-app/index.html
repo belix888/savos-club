@@ -816,15 +816,58 @@
             tg.showAlert(message);
         }
 
-        // Переключение вкладок
-        function switchTab(tabName) {
+        // Проверка доступа к разделам
+        async function checkSectionAccess(section) {
+            try {
+                // Получаем настройки доступа из localStorage (админ сохраняет их там)
+                const sectionAccess = JSON.parse(localStorage.getItem('sectionAccess') || '{}');
+                
+                // Если раздела нет в настройках или он доступен - возвращаем true
+                if (!sectionAccess.hasOwnProperty(section) || sectionAccess[section] === true) {
+                    return true;
+                }
+                
+                return false; // Раздел заблокирован
+            } catch (error) {
+                console.error('Ошибка проверки доступа:', error);
+                return true; // В случае ошибки разрешаем доступ
+            }
+        }
+
+        // Показ сообщения о блокировке
+        function showBlockedMessage(section) {
+            const sectionNames = {
+                'bar': '🍸 Бар',
+                'events': '📅 Афиша',
+                'contests': '🏆 Конкурсы'
+            };
+            
+            const sectionMessage = sectionNames[section] || section;
+            tg.showAlert(`🚫 ${sectionMessage} временно недоступен\n\nСкоро вы узнаете, что будет\n\nОставайтесь с нами!`);
+        }
+
+        // Переключение вкладок с проверкой доступа
+        async function switchTab(tabName) {
+            // Проверяем доступ к разделу (кроме профиля)
+            if (tabName !== 'profile') {
+                const hasAccess = await checkSectionAccess(tabName);
+                
+                if (!hasAccess) {
+                    showBlockedMessage(tabName);
+                    return; // Не переключаем вкладку
+                }
+            }
+            
             // Убираем активный класс со всех вкладок и контента
             document.querySelectorAll('.nav-tab').forEach(tab => tab.classList.remove('active'));
             document.querySelectorAll('.tab-content').forEach(content => content.classList.remove('active'));
             
             // Активируем выбранную вкладку и контент
-            document.querySelector(`[data-tab="${tabName}"]`).classList.add('active');
-            document.getElementById(tabName).classList.add('active');
+            const tab = document.querySelector(`[data-tab="${tabName}"]`);
+            const content = document.getElementById(tabName);
+            
+            if (tab) tab.classList.add('active');
+            if (content) content.classList.add('active');
         }
 
         // Обработчики событий

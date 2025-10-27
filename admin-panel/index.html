@@ -613,6 +613,9 @@
                 statusEl.textContent = sectionAccess[section] ? 'Закрыть' : 'Открыть';
             }
             
+            // Сохраняем в localStorage (будет использоваться в Mini App)
+            localStorage.setItem('sectionAccess', JSON.stringify(sectionAccess));
+            
             const sectionNames = {
                 bar: '🍸 Бар',
                 events: '📅 Афиша',
@@ -794,6 +797,26 @@
         // Инициализация
         document.addEventListener('DOMContentLoaded', function() {
             console.log('✅ DOM загружен, инициализация...');
+            
+            // Инициализация настроек доступа при загрузке
+            const savedAccess = localStorage.getItem('sectionAccess');
+            if (savedAccess) {
+                try {
+                    sectionAccess = JSON.parse(savedAccess);
+                    // Обновляем кнопки
+                    Object.keys(sectionAccess).forEach(section => {
+                        const statusEl = document.getElementById(section + '-status');
+                        if (statusEl) {
+                            statusEl.textContent = sectionAccess[section] ? 'Закрыть' : 'Открыть';
+                        }
+                    });
+                } catch (e) {
+                    console.error('Ошибка загрузки настроек доступа:', e);
+                }
+            } else {
+                // Сохраняем начальные значения
+                localStorage.setItem('sectionAccess', JSON.stringify(sectionAccess));
+            }
             
             // Кнопка тест
             const testBtn = document.getElementById('test-btn');
