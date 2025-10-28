@@ -264,11 +264,9 @@ class SavosBotWorking:
             except Exception as e:
                 logger.warning(f"⚠️ Не удалось получить фото: {e}")
             
+            # НЕ отправляем на сайт до получения телефона
+            # Только сохраняем локально для последующей синхронизации
             self.db.save_user(user_data)
-            
-            # Отправка на сайт (если доступен)
-            if self.website.connected:
-                self.website.send_user(user_data)
             
             await update.message.reply_text(
                 f"👋 Добро пожаловать в SavosBot Club, {user.first_name}!\n\n"
@@ -384,9 +382,13 @@ class SavosBotWorking:
                 with open(self.db.users_file, 'w') as f:
                     json.dump(users, f, indent=2)
                 
-                # Отправка на сайт (если доступен)
-                if self.website.connected:
-                    self.website.send_user(user_data)
+                # Отправка на сайт ВСЕГДА (даже если сайт не доступен, попробуем)
+                logger.info(f"📤 Попытка отправки пользователя на сайт...")
+                result = self.website.send_user(user_data)
+                if result:
+                    logger.info(f"✅ Пользователь успешно отправлен на сайт")
+                else:
+                    logger.warning(f"⚠️ Не удалось отправить на сайт, сохранено локально")
                 
                 keyboard = [
                     [InlineKeyboardButton("📱 Открыть приложение", web_app=WebAppInfo(url="https://savos-club-two.vercel.app/mini-app"))],

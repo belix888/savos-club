@@ -14,6 +14,8 @@ logs/
 
 # Database files
 data/
+database/*.db
+!database/*.js
 
 # Python
 __pycache__/
