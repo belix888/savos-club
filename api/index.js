@@ -55,20 +55,60 @@ app.post('/api/auth/telegram', async (req, res) => {
       return res.status(400).json({ error: 'Telegram ID обязателен' });
     }
 
-    // Mock user authentication for Vercel
-    // In production, you should connect to your database
-    const mockUser = {
-      id: parseInt(telegram_id),
-      telegram_id: telegram_id,
-      username: username || 'user_' + telegram_id,
-      first_name: first_name || 'User',
-      last_name: last_name || '',
-      is_resident: false,
-      is_waiter: false,
-      is_admin: false,
-      is_super_admin: false,
-      created_at: new Date().toISOString()
-    };
+    // Connect to database to get real user data
+    const db = require('../database/init');
+    
+    // Try to get user from database
+    const user = await new Promise((resolve, reject) => {
+      db.get('SELECT * FROM users WHERE telegram_id = ?', [telegram_id], (err, row) => {
+        if (err) {
+          reject(err);
+        } else {
+          resolve(row);
+        }
+      });
+    });
+    
+    let mockUser;
+    
+    if (user) {
+      // User exists - return database data with internal ID
+      mockUser = {
+        id: user.id,  // Internal ID from database
+        internal_id: user.id,  // Also set internal_id for clarity
+        telegram_id: user.telegram_id,
+        username: user.username,
+        first_name: user.first_name,
+        last_name: user.last_name || '',
+        phone: user.phone,
+        profile_link: user.profile_link,
+        photo_url: user.photo_url,
+        is_resident: user.is_resident || false,
+        is_waiter: user.is_waiter || false,
+        is_admin: user.is_admin || false,
+        is_super_admin: user.is_super_admin || false,
+        created_at: user.created_at || new Date().toISOString()
+      };
+    } else {
+      // Create new user with internal ID
+      // For now, use a simple incrementing ID based on timestamp
+      mockUser = {
+        id: Math.floor(Date.now() / 1000),  // Temporary ID until kids database sync
+        internal_id: Math.floor(Date.now() / 1000),
+        telegram_id: telegram_id,
+        username: username || 'user_' + telegram_id,
+        first_name: first_name || 'User',
+        last_name: last_name || '',
+        phone: null,
+        profile_link: username ? `https://t.me/${username}` : null,
+        photo_url: null,
+        is_resident: false,
+        is_waiter: false,
+        is_admin: false,
+        is_super_admin: false,
+        created_at: new Date().toISOString()
+      };
+    }
 
     const token = jwt.sign(
       { 
