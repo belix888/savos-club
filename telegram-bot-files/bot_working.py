@@ -135,7 +135,17 @@ class WebsiteConnection:
         try:
             try:
                 import requests
-                response = requests.get(f"{self.website_url}/api/health", timeout=5)
+                
+                # Отключаем прокси для проверки
+                session = requests.Session()
+                session.trust_env = False
+                session.proxies = {
+                    'http': None,
+                    'https': None,
+                    'no_proxy': '*'
+                }
+                
+                response = session.get(f"{self.website_url}/api/health", timeout=5)
                 if response.status_code == 200:
                     self.connected = True
                     return response.json()
