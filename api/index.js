@@ -144,20 +144,57 @@ app.post('/api/users', (req, res) => {
       return res.status(400).json({ error: 'Invalid user data' });
     }
     
-    // Log user data (in production, save to database)
-    console.log('✅ User data received from bot:', {
-      id: userData.id,
-      username: userData.username,
-      first_name: userData.first_name,
-      source: userData.source,
-      timestamp: new Date().toISOString()
-    });
+    // Connect to database
+    const db = require('../database/init');
     
-    res.json({
-      status: 'success',
-      message: 'User data received',
-      user_id: userData.id,
-      timestamp: new Date().toISOString()
+    // Check if user exists
+    db.get('SELECT * FROM users WHERE telegram_id = ?', [userData.id], (err, existingUser) => {
+      if (err) {
+        console.error('❌ Error checking user:', err);
+        return res.status(500).json({ error: 'Database error' });
+      }
+      
+      if (existingUser) {
+        // Update existing user
+        db.run(
+          'UPDATE users SET username = ?, first_name = ?, last_name = ?, phone = ?, profile_link = ?, photo_url = ?, updated_at = CURRENT_TIMESTAMP WHERE telegram_id = ?',
+          [userData.username, userData.first_name, userData.last_name, userData.phone, userData.profile_link, userData.photo_url, userData.id],
+          function(err) {
+            if (err) {
+              console.error('❌ Error updating user:', err);
+              return res.status(500).json({ error: 'Database error' });
+            }
+            console.log('✅ User updated:', userData.id);
+            res.json({
+              status: 'success',
+              message: 'User updated',
+              user_id: existingUser.id,
+              internal_id: existingUser.id,
+              timestamp: new Date().toISOString()
+            });
+          }
+        );
+      } else {
+        // Create new user (will get AUTOINCREMENT ID)
+        db.run(
+          'INSERT INTO users (telegram_id, username, first_name, last_name, phone, profile_link, photo_url) VALUES (?, ?, ?, ?, ?, ?, ?)',
+          [userData.id, userData.username, userData.first_name, userData.last_name, userData.phone, userData.profile_link, userData.photo_url],
+          function(err) {
+            if (err) {
+              console.error('❌ Error creating user:', err);
+              return res.status(500).json({ error: 'Database error' });
+            }
+            console.log('✅ User created:', userData.id, 'Internal ID:', this.lastID);
+            res.json({
+              status: 'success',
+              message: 'User created',
+              user_id: userData.id,
+              internal_id: this.lastID,
+              timestamp: new Date().toISOString()
+            });
+          }
+        );
+      }
     });
     
   } catch (error) {
