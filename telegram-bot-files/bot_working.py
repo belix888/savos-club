@@ -575,11 +575,34 @@ class SavosBotWorking:
         # Добавляем обработчик ошибок
         self.application.add_error_handler(self.error_handler)
         
-        self.application.run_polling(
-            allowed_updates=['message', 'callback_query', 'inline_query'],
-            drop_pending_updates=True,  # Игнорируем старые обновления
-            close_loop=False
-        )
+        # Пробуем запустить с повторными попытками
+        max_retries = 5
+        retry_count = 0
+        
+        while retry_count < max_retries:
+            try:
+                logger.info(f"🔄 Попытка запуска {retry_count + 1}/{max_retries}...")
+                self.application.run_polling(
+                    allowed_updates=['message', 'callback_query', 'inline_query'],
+                    drop_pending_updates=True,  # Игнорируем старые обновления
+                    close_loop=False
+                )
+                break  # Если запуск успешен, выходим из цикла
+            except Exception as e:
+                retry_count += 1
+                if 'Network' in str(e) or 'Connection' in str(e):
+                    logger.warning(f"⚠️ Ошибка подключения (попытка {retry_count}/{max_retries}): {e}")
+                    if retry_count < max_retries:
+                        import time
+                        logger.info("⏳ Ожидание 10 секунд перед повторной попыткой...")
+                        time.sleep(10)
+                    else:
+                        logger.error("❌ Все попытки подключения исчерпаны. Бот не может подключиться к Telegram.")
+                        break
+                else:
+                    # Не сетевая ошибка - выходим
+                    logger.error(f"❌ Критическая ошибка: {e}")
+                    break
     
     async def error_handler(self, update: object, context: ContextTypes.DEFAULT_TYPE):
         """Обработчик ошибок"""
@@ -591,7 +614,7 @@ class SavosBotWorking:
         logger.error(tb)
         
         # Не крашим бота при сетевых ошибках
-        if isinstance(context.error, Exception) and 'Network' in str(type(context.error)):
+        if isinstance(context.error, Exception) and ('Network' in str(type(context.error)) or 'Connection' in str(context.error) or 'ConnectError' in str(context.error)):
             logger.warning("⚠️ Network error occurred, continuing...")
             return
 
