@@ -473,9 +473,59 @@ class SavosBotWorking:
         # Здесь можно добавить логику синхронизации
         await update.message.reply_text("✅ Синхронизация завершена!")
     
+    def sync_existing_users(self):
+        """Синхронизация существующих пользователей с сайтом"""
+        try:
+            import requests
+            # Проверяем наличие файла users.json
+            if not os.path.exists(self.db.users_file):
+                logger.info("📭 Нет файла users.json для синхронизации")
+                return
+            
+            # Загружаем пользователей
+            with open(self.db.users_file, 'r') as f:
+                users = json.load(f)
+            
+            if not users:
+                logger.info("📭 Нет пользователей для синхронизации")
+                return
+            
+            logger.info(f"📤 Синхронизация {len(users)} пользователей с сайтом...")
+            
+            success_count = 0
+            for user in users:
+                if user.get('phone'):  # Синхронизируем только тех, у кого есть телефон
+                    try:
+                        response = requests.post(
+                            f"{self.website_url}/api/users",
+                            json={
+                                **user,
+                                'source': 'telegram_bot_sync'
+                            },
+                            headers={
+                                'Authorization': f'Bearer {self.api_key}',
+                                'Content-Type': 'application/json'
+                            },
+                            timeout=5
+                        )
+                        
+                        if response.status_code == 200:
+                            logger.info(f"✅ Синхронизирован пользователь {user.get('id')} ({user.get('first_name')})")
+                            success_count += 1
+                    except Exception as e:
+                        logger.warning(f"⚠️ Ошибка синхронизации пользователя {user.get('id')}: {e}")
+            
+            logger.info(f"✅ Синхронизировано {success_count}/{len([u for u in users if u.get('phone')])} пользователей")
+            
+        except Exception as e:
+            logger.error(f"❌ Ошибка при синхронизации: {e}")
+    
     def run(self):
         """Запуск бота"""
         logger.info("🚀 Запуск SavosBot...")
+        
+        # Синхронизируем существующих пользователей
+        self.sync_existing_users()
         
         # Добавляем обработчик ошибок
         self.application.add_error_handler(self.error_handler)
