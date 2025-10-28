@@ -805,9 +805,24 @@
                 // Загружаем действия пользователя
                 loadUserActions();
                 
+                // Проверяем наличие фото профиля
+                const hasPhoto = user.photo_url || user.profile_photo_url;
+                
                 const profileInfo = document.getElementById('profile-info');
                 profileInfo.innerHTML = `
                     <div class="profile-info">
+                        ${hasPhoto ? `
+                        <div style="text-align: center; margin-bottom: 20px;">
+                            <img src="${user.photo_url || user.profile_photo_url}" 
+                                 alt="Фото профиля" 
+                                 style="width: 100px; height: 100px; border-radius: 50%; border: 3px solid #ef4444;">
+                        </div>
+                        ` : ''}
+                        
+                        <div class="profile-item">
+                            <span class="profile-label">🆔 ID:</span>
+                            <span class="profile-value">${user.internal_id || user.id || 'N/A'}</span>
+                        </div>
                         <div class="profile-item">
                             <span class="profile-label">Имя:</span>
                             <span class="profile-value">${user.first_name || ''} ${user.last_name || ''}</span>
@@ -816,12 +831,28 @@
                             <span class="profile-label">Username:</span>
                             <span class="profile-value">@${user.username || 'не указан'}</span>
                         </div>
+                        ${user.phone ? `
+                        <div class="profile-item">
+                            <span class="profile-label">Телефон:</span>
+                            <span class="profile-value">${user.phone}</span>
+                        </div>
+                        ` : ''}
                         <div class="profile-item">
                             <span class="profile-label">Статус:</span>
                             <span class="status-badge ${user.is_resident ? 'status-resident' : 'status-guest'}">
                                 ${user.is_resident ? '🏆 Резидент' : '👤 Гость'}
                             </span>
                         </div>
+                        ${user.profile_link ? `
+                        <div class="profile-item">
+                            <span class="profile-label">Профиль:</span>
+                            <span class="profile-value">
+                                <a href="${user.profile_link}" target="_blank" style="color: #ef4444; text-decoration: none;">
+                                    ${user.profile_link}
+                                </a>
+                            </span>
+                        </div>
+                        ` : ''}
                         ${user.created_at ? `
                         <div class="profile-item">
                             <span class="profile-label">Дата регистрации:</span>
