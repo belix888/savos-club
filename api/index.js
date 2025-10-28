@@ -24,6 +24,11 @@ app.get('/login', (req, res) => {
 });
 
 app.get('/admin-panel', (req, res) => {
+  // Примитивная защита: требуем query is_admin=1 или header X-Admin: 1 (демо)
+  const isAdmin = req.query.is_admin === '1' || req.headers['x-admin'] === '1';
+  if (!isAdmin) {
+    return res.status(403).send('<h1 style="font-family: sans-serif; color: #ef4444;">Доступ запрещен</h1><p>Админ-панель доступна только администраторам.</p>');
+  }
   res.sendFile(path.join(__dirname, '../admin-panel/index.html'));
 });
 

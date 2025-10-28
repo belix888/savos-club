@@ -15,6 +15,8 @@ db.serialize(() => {
       first_name TEXT,
       last_name TEXT,
       phone TEXT,
+      profile_link TEXT,
+      photo_url TEXT,
       email TEXT,
       is_resident BOOLEAN DEFAULT 0,
       is_waiter BOOLEAN DEFAULT 0,
@@ -24,6 +26,19 @@ db.serialize(() => {
       updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
     )
   `);
+
+  // Миграции для существующей таблицы users: добавляем недостающие столбцы
+  // Примечание: SQLite не поддерживает IF NOT EXISTS для столбцов, поэтому игнорируем ошибку, если столбец уже существует
+  db.run('ALTER TABLE users ADD COLUMN profile_link TEXT', (err) => {
+    if (err && !String(err.message).includes('duplicate column name')) {
+      console.warn('Migration: profile_link add column warning:', err.message);
+    }
+  });
+  db.run('ALTER TABLE users ADD COLUMN photo_url TEXT', (err) => {
+    if (err && !String(err.message).includes('duplicate column name')) {
+      console.warn('Migration: photo_url add column warning:', err.message);
+    }
+  });
 
   // Таблица мероприятий (афиша)
   db.run(`
