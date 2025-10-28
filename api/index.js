@@ -90,24 +90,13 @@ app.post('/api/auth/telegram', async (req, res) => {
         created_at: user.created_at || new Date().toISOString()
       };
     } else {
-      // Create new user with internal ID
-      // For now, use a simple incrementing ID based on timestamp
-      mockUser = {
-        id: Math.floor(Date.now() / 1000),  // Temporary ID until kids database sync
-        internal_id: Math.floor(Date.now() / 1000),
-        telegram_id: telegram_id,
-        username: username || 'user_' + telegram_id,
-        first_name: first_name || 'User',
-        last_name: last_name || '',
-        phone: null,
-        profile_link: username ? `https://t.me/${username}` : null,
-        photo_url: null,
-        is_resident: false,
-        is_waiter: false,
-        is_admin: false,
-        is_super_admin: false,
-        created_at: new Date().toISOString()
-      };
+      // User not registered in database
+      // They need to register via /start command in bot first
+      // This ensures they get a proper internal ID (1, 2, 3...) from AUTOINCREMENT
+      return res.status(404).json({ 
+        error: 'User not registered',
+        message: 'Please register via Telegram bot using /start command first'
+      });
     }
 
     const token = jwt.sign(
