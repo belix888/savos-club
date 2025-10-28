@@ -165,6 +165,10 @@ class WebsiteConnection:
         try:
             import requests
             import ssl
+            import os
+            
+            # Логируем текущие настройки прокси
+            logger.info(f"🔍 Текущие переменные прокси: HTTP_PROXY={os.environ.get('HTTP_PROXY', 'НЕТ')}")
             
             # Создаем session с отключенным прокси
             session = requests.Session()
@@ -180,6 +184,8 @@ class WebsiteConnection:
             # Отключаем SSL проверку для прокси (если нужно)
             session.verify = True
             
+            logger.info(f"📤 Отправка пользователя {user_data.get('id')} на {self.website_url}/api/users")
+            
             response = session.post(
                 f"{self.website_url}/api/users",
                 json={
@@ -192,6 +198,8 @@ class WebsiteConnection:
                 },
                 timeout=10
             )
+            
+            logger.info(f"📥 Ответ сайта: {response.status_code}")
             if response.status_code == 200:
                 logger.info(f"✅ Пользователь {user_data['id']} отправлен на сайт")
                 return response.json()
