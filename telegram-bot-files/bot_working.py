@@ -312,6 +312,15 @@ class SavosBotWorking:
         with open(self.db.users_file, 'w') as f:
             json.dump(users, f, indent=2)
         
+        # Отправка на сайт ВСЕГДА
+        logger.info(f"📤 Попытка отправки пользователя на сайт...")
+        if user_internal:
+            result = self.website.send_user(user_internal)
+            if result:
+                logger.info(f"✅ Пользователь успешно отправлен на сайт")
+            else:
+                logger.warning(f"⚠️ Не удалось отправить на сайт, сохранено локально")
+        
         # Находим внутренний ID пользователя
         internal_id = user_internal.get('internal_id', registered_count + 1) if user_internal else registered_count + 1
         
