@@ -512,6 +512,23 @@
                     <input type="text" id="edit-user-name" required>
                 </div>
                 <div class="form-group">
+                    <label>Username</label>
+                    <input type="text" id="edit-user-username" readonly style="background: rgba(255,255,255,0.05);">
+                </div>
+                <div class="form-group">
+                    <label>Телефон</label>
+                    <input type="text" id="edit-user-phone" readonly style="background: rgba(255,255,255,0.05);">
+                </div>
+                <div class="form-group">
+                    <label>Ссылка на профиль</label>
+                    <input type="text" id="edit-user-profile-link" readonly style="background: rgba(255,255,255,0.05);">
+                </div>
+                <div class="form-group">
+                    <label>Фото профиля</label>
+                    <div id="edit-user-photo-preview" style="text-align: center; margin-top: 10px;"></div>
+                    <input type="text" id="edit-user-photo-url" readonly style="background: rgba(255,255,255,0.05); margin-top: 10px;">
+                </div>
+                <div class="form-group">
                     <label>Роль</label>
                     <select id="edit-user-role" required>
                         <option value="User">Пользователь</option>
@@ -846,18 +863,63 @@
             { id: 5, name: 'Дмитрий Волков', role: 'Waiter', status: 'Active' }
         ];
 
-        function editUser(id) {
+        async function editUser(id) {
             const user = usersData.find(u => u.id === id);
             if (!user) {
                 showToast('error', 'Ошибка', 'Пользователь не найден');
                 return;
             }
             
-            // Заполняем форму
-            document.getElementById('edit-user-id').value = user.id;
-            document.getElementById('edit-user-name').value = user.name;
-            document.getElementById('edit-user-role').value = user.role;
-            document.getElementById('edit-user-status').value = user.status;
+            // Пытаемся получить полные данные пользователя из API
+            try {
+                const response = await fetch(`/api/users/${id}`);
+                if (response.ok) {
+                    const fullUser = await response.json();
+                    
+                    // Заполняем форму всеми данными
+                    document.getElementById('edit-user-id').value = fullUser.id || id;
+                    document.getElementById('edit-user-name').value = fullUser.first_name + ' ' + (fullUser.last_name || '') || user.name;
+                    document.getElementById('edit-user-username').value = '@' + (fullUser.username || 'не указан');
+                    document.getElementById('edit-user-phone').value = fullUser.phone || 'не указан';
+                    document.getElementById('edit-user-profile-link').value = fullUser.profile_link || 'не указано';
+                    document.getElementById('edit-user-photo-url').value = fullUser.photo_url || 'не указано';
+                    
+                    // Показываем фото если есть
+                    const photoPreview = document.getElementById('edit-user-photo-preview');
+                    if (fullUser.photo_url) {
+                        photoPreview.innerHTML = `<img src="${fullUser.photo_url}" alt="Фото профиля" style="width: 80px; height: 80px; border-radius: 50%; border: 2px solid #ef4444;">`;
+                    } else {
+                        photoPreview.innerHTML = '<span style="color: rgba(255,255,255,0.5);">Фото не загружено</span>';
+                    }
+                    
+                    document.getElementById('edit-user-role').value = fullUser.is_admin ? 'Admin' : (fullUser.is_resident ? 'Resident' : (fullUser.is_waiter ? 'Waiter' : 'User'));
+                    document.getElementById('edit-user-status').value = user.status || 'Active';
+                } else {
+                    // Используем данные из памяти
+                    document.getElementById('edit-user-id').value = user.id;
+                    document.getElementById('edit-user-name').value = user.name;
+                    document.getElementById('edit-user-username').value = 'данные не доступны';
+                    document.getElementById('edit-user-phone').value = 'данные не доступны';
+                    document.getElementById('edit-user-profile-link').value = 'данные не доступны';
+                    document.getElementById('edit-user-photo-url').value = 'данные не доступны';
+                    document.getElementById('edit-user-role').value = user.role;
+                    document.getElementById('edit-user-status').value = user.status;
+                    document.getElementById('edit-user-photo-preview').innerHTML = '<span style="color: rgba(255,255,255,0.5);">Фото не доступно</span>';
+                }
+            } catch (error) {
+                console.error('Ошибка загрузки данных пользователя:', error);
+                
+                // Используем данные из памяти
+                document.getElementById('edit-user-id').value = user.id;
+                document.getElementById('edit-user-name').value = user.name;
+                document.getElementById('edit-user-username').value = 'данные не доступны';
+                document.getElementById('edit-user-phone').value = 'данные не доступны';
+                document.getElementById('edit-user-profile-link').value = 'данные не доступны';
+                document.getElementById('edit-user-photo-url').value = 'данные не доступны';
+                document.getElementById('edit-user-role').value = user.role;
+                document.getElementById('edit-user-status').value = user.status;
+                document.getElementById('edit-user-photo-preview').innerHTML = '<span style="color: rgba(255,255,255,0.5);">Фото не доступно</span>';
+            }
             
             // Показываем модальное окно
             document.getElementById('edit-user-modal').style.display = 'block';
