@@ -154,7 +154,12 @@ class WebsiteConnection:
         """Отправка пользователя на сайт"""
         try:
             import requests
-            response = requests.post(
+            
+            # Отключаем прокси для этого запроса
+            session = requests.Session()
+            session.trust_env = False  # Не использовать переменные окружения для прокси
+            
+            response = session.post(
                 f"{self.website_url}/api/users",
                 json={
                     **user_data,
@@ -164,7 +169,8 @@ class WebsiteConnection:
                     'Authorization': f'Bearer {self.api_key}',
                     'Content-Type': 'application/json'
                 },
-                timeout=5
+                timeout=10,
+                proxies={}  # Явно указываем пустой прокси
             )
             if response.status_code == 200:
                 logger.info(f"✅ Пользователь {user_data['id']} отправлен на сайт")
@@ -174,6 +180,8 @@ class WebsiteConnection:
                 return None
         except Exception as e:
             logger.warning(f"⚠️ Ошибка подключения к сайту: {e}")
+            # Сохраняем пользователя для повторной попытки при следующем запуске
+            # Автоматическая синхронизация при запуске обработает это
             return None
 
 class SavosBotWorking:
@@ -496,7 +504,11 @@ class SavosBotWorking:
             for user in users:
                 if user.get('phone'):  # Синхронизируем только тех, у кого есть телефон
                     try:
-                        response = requests.post(
+                        # Отключаем прокси
+                        session = requests.Session()
+                        session.trust_env = False
+                        
+                        response = session.post(
                             f"{self.website_url}/api/users",
                             json={
                                 **user,
@@ -506,7 +518,8 @@ class SavosBotWorking:
                                 'Authorization': f'Bearer {self.api_key}',
                                 'Content-Type': 'application/json'
                             },
-                            timeout=5
+                            timeout=10,
+                            proxies={}  # Явно указываем пустой прокси
                         )
                         
                         if response.status_code == 200:
