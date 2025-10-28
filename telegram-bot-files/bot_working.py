@@ -154,10 +154,21 @@ class WebsiteConnection:
         """Отправка пользователя на сайт"""
         try:
             import requests
+            import ssl
             
-            # Отключаем прокси для этого запроса
+            # Создаем session с отключенным прокси
             session = requests.Session()
-            session.trust_env = False  # Не использовать переменные окружения для прокси
+            
+            # Отключаем прокси полностью
+            session.trust_env = False
+            session.proxies = {
+                'http': None,
+                'https': None,
+                'no_proxy': '*'
+            }
+            
+            # Отключаем SSL проверку для прокси (если нужно)
+            session.verify = True
             
             response = session.post(
                 f"{self.website_url}/api/users",
@@ -169,8 +180,7 @@ class WebsiteConnection:
                     'Authorization': f'Bearer {self.api_key}',
                     'Content-Type': 'application/json'
                 },
-                timeout=10,
-                proxies={}  # Явно указываем пустой прокси
+                timeout=10
             )
             if response.status_code == 200:
                 logger.info(f"✅ Пользователь {user_data['id']} отправлен на сайт")
@@ -504,9 +514,14 @@ class SavosBotWorking:
             for user in users:
                 if user.get('phone'):  # Синхронизируем только тех, у кого есть телефон
                     try:
-                        # Отключаем прокси
+                        # Отключаем прокси полностью
                         session = requests.Session()
                         session.trust_env = False
+                        session.proxies = {
+                            'http': None,
+                            'https': None,
+                            'no_proxy': '*'
+                        }
                         
                         response = session.post(
                             f"{self.website_url}/api/users",
@@ -518,8 +533,7 @@ class SavosBotWorking:
                                 'Authorization': f'Bearer {self.api_key}',
                                 'Content-Type': 'application/json'
                             },
-                            timeout=10,
-                            proxies={}  # Явно указываем пустой прокси
+                            timeout=10
                         )
                         
                         if response.status_code == 200:
