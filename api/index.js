@@ -328,14 +328,40 @@ app.get('/api/statistics', (req, res) => {
 // Users list endpoint
 app.get('/api/users', (req, res) => {
   try {
-    // Return mock users (in production, fetch from database)
-    res.json([
-      { id: 1, first_name: 'Иван', last_name: 'Иванов', username: 'ivan_ivanov', is_resident: false, is_admin: false },
-      { id: 2, first_name: 'Мария', last_name: 'Петрова', username: 'maria_petrova', is_resident: true, is_admin: false },
-      { id: 3, first_name: 'Александр', last_name: 'Сидоров', username: 'alex_sidorov', is_resident: false, is_admin: true },
-      { id: 4, first_name: 'Елена', last_name: 'Козлова', username: 'elena_kozlova', is_resident: true, is_admin: false },
-      { id: 5, first_name: 'Дмитрий', last_name: 'Волков', username: 'dmitry_volkov', is_resident: false, is_admin: false, is_waiter: true }
-    ]);
+    // Load users from database
+    const db = require('../database/init');
+    
+    db.all('SELECT * FROM users ORDER BY id ASC', [], (err, rows) => {
+      if (err) {
+        console.error('❌ Error fetching users:', err);
+        return res.status(500).json({ error: 'Database error' });
+      }
+      
+      // If no users, return empty array
+      if (!rows || rows.length === 0) {
+        return res.json([]);
+      }
+      
+      // Return real users from database
+      const users = rows.map(user => ({
+        id: user.id,
+        telegram_id: user.telegram_id,
+        username: user.username,
+        first_name: user.first_name,
+        last_name: user.last_name,
+        phone: user.phone,
+        profile_link: user.profile_link,
+        photo_url: user.photo_url,
+        is_resident: user.is_resident || false,
+        is_waiter: user.is_waiter || false,
+        is_admin: user.is_admin || false,
+        is_super_admin: user.is_super_admin || false,
+        created_at: user.created_at,
+        updated_at: user.updated_at
+      }));
+      
+      res.json(users);
+    });
   } catch (error) {
     console.error('❌ Error fetching users:', error);
     res.status(500).json({ error: 'Internal server error' });
