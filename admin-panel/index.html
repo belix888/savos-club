@@ -973,9 +973,25 @@
             }
         });
 
+        // Проверка аутентификации
+        function checkAuth() {
+            const token = localStorage.getItem('adminToken');
+            if (!token) {
+                // Перенаправляем на страницу логина
+                window.location.href = '/login';
+                return false;
+            }
+            return true;
+        }
+
         // Инициализация
         document.addEventListener('DOMContentLoaded', function() {
             console.log('✅ DOM загружен, инициализация...');
+            
+            // Проверяем аутентификацию
+            if (!checkAuth()) {
+                return;
+            }
             
             // Инициализация настроек доступа при загрузке
             const savedAccess = localStorage.getItem('sectionAccess');
