@@ -60,8 +60,8 @@ app.post('/api/auth/telegram', async (req, res) => {
     // Connect to database to get real user data
     const db = require('../database/init');
     
-    // Try to get user from database
-    const user = await new Promise((resolve, reject) => {
+    // Try to get user from database by telegram_id
+    let user = await new Promise((resolve, reject) => {
       db.get('SELECT * FROM users WHERE telegram_id = ?', [telegram_id], (err, row) => {
         if (err) {
           reject(err);
@@ -70,6 +70,40 @@ app.post('/api/auth/telegram', async (req, res) => {
         }
       });
     });
+    
+    // If not found by telegram_id, try to find by username (user registered via website)
+    if (!user && username) {
+      user = await new Promise((resolve, reject) => {
+        db.get('SELECT * FROM users WHERE username = ?', [username], (err, row) => {
+          if (err) {
+            reject(err);
+          } else {
+            resolve(row);
+          }
+        });
+      });
+      
+      // If found by username, link telegram_id
+      if (user && !user.telegram_id) {
+        await new Promise((resolve, reject) => {
+          db.run(
+            'UPDATE users SET telegram_id = ?, first_name = ?, last_name = ?, updated_at = CURRENT_TIMESTAMP WHERE username = ?',
+            [telegram_id, first_name, last_name || null, username],
+            function(err) {
+              if (err) reject(err);
+              else resolve();
+            }
+          );
+        });
+        // Reload user data
+        user = await new Promise((resolve, reject) => {
+          db.get('SELECT * FROM users WHERE telegram_id = ?', [telegram_id], (err, row) => {
+            if (err) reject(err);
+            else resolve(row);
+          });
+        });
+      }
+    }
     
     let mockUser;
     
@@ -93,11 +127,17 @@ app.post('/api/auth/telegram', async (req, res) => {
       };
     } else {
       // User not registered in database
-      // They need to register via /start command in bot first
-      // This ensures they get a proper internal ID (1, 2, 3...) from AUTOINCREMENT
+      // Return 404 with registration flag
       return res.status(404).json({ 
         error: 'User not registered',
-        message: 'Please register via Telegram bot using /start command first'
+        message: 'Please register first',
+        needs_registration: true,
+        telegram_data: {
+          telegram_id: telegram_id,
+          username: username,
+          first_name: first_name,
+          last_name: last_name
+        }
       });
     }
 
@@ -511,6 +551,217 @@ app.get('/api/users', (req, res) => {
   } catch (error) {
     console.error('❌ Error fetching users:', error);
     res.status(500).json({ error: 'Internal server error' });
+  }
+});
+
+// Sync bot users endpoint - accepts JSON array of users from bot
+app.post('/api/sync-bot-users', (req, res) => {
+  try {
+    const users = req.body.users || req.body; // Accept both {users: [...]} and [...]
+    const usersArray = Array.isArray(users) ? users : [users];
+    
+    if (!usersArray || usersArray.length === 0) {
+      return res.status(400).json({ error: 'No users provided' });
+    }
+    
+    const db = require('../database/init');
+    let synced = 0;
+    let updated = 0;
+    let errors = 0;
+    
+    const syncPromises = usersArray.map(user => {
+      return new Promise((resolve) => {
+        // Check if user exists by telegram_id
+        db.get('SELECT * FROM users WHERE telegram_id = ?', [user.id || user.telegram_id], (err, existing) => {
+          if (err) {
+            console.error('❌ Error checking user:', err);
+            errors++;
+            resolve();
+            return;
+          }
+          
+          if (existing) {
+            // Update existing user
+            db.run(
+              'UPDATE users SET username = ?, first_name = ?, last_name = ?, phone = COALESCE(?, phone), profile_link = COALESCE(?, profile_link), photo_url = COALESCE(?, photo_url), updated_at = CURRENT_TIMESTAMP WHERE telegram_id = ?',
+              [
+                user.username || existing.username,
+                user.first_name || existing.first_name,
+                user.last_name || existing.last_name || null,
+                user.phone || null,
+                user.profile_link || existing.profile_link || null,
+                user.photo_url || existing.photo_url || null,
+                user.id || user.telegram_id
+              ],
+              function(updateErr) {
+                if (updateErr) {
+                  console.error('❌ Error updating user:', updateErr);
+                  errors++;
+                } else {
+                  updated++;
+                  console.log(`✅ User updated: ${user.id || user.telegram_id}`);
+                }
+                resolve();
+              }
+            );
+          } else {
+            // Create new user
+            db.run(
+              'INSERT INTO users (telegram_id, username, first_name, last_name, phone, profile_link, photo_url) VALUES (?, ?, ?, ?, ?, ?, ?)',
+              [
+                user.id || user.telegram_id,
+                user.username || null,
+                user.first_name || null,
+                user.last_name || null,
+                user.phone || null,
+                user.profile_link || (user.username ? `https://t.me/${user.username}` : null),
+                user.photo_url || null
+              ],
+              function(insertErr) {
+                if (insertErr) {
+                  console.error('❌ Error creating user:', insertErr);
+                  errors++;
+                } else {
+                  synced++;
+                  console.log(`✅ User created: ${user.id || user.telegram_id}, Internal ID: ${this.lastID}`);
+                }
+                resolve();
+              }
+            );
+          }
+        });
+      });
+    });
+    
+    Promise.all(syncPromises).then(() => {
+      res.json({
+        status: 'success',
+        message: 'Users synchronized',
+        synced: synced,
+        updated: updated,
+        errors: errors,
+        total: usersArray.length,
+        timestamp: new Date().toISOString()
+      });
+      console.log(`✅ Sync completed: ${synced} created, ${updated} updated, ${errors} errors`);
+    });
+    
+  } catch (error) {
+    console.error('❌ Error syncing bot users:', error);
+    res.status(500).json({ error: 'Internal server error', message: error.message });
+  }
+});
+
+// Upload bot users JSON file endpoint
+app.post('/api/upload-bot-users', (req, res) => {
+  try {
+    const usersData = req.body;
+    
+    // Handle both direct array and wrapped format
+    let usersArray = [];
+    if (Array.isArray(usersData)) {
+      usersArray = usersData;
+    } else if (usersData.users && Array.isArray(usersData.users)) {
+      usersArray = usersData.users;
+    } else if (usersData.data && Array.isArray(usersData.data)) {
+      usersArray = usersData.data;
+    } else {
+      return res.status(400).json({ error: 'Invalid format. Expected array of users or {users: [...]}' });
+    }
+    
+    if (usersArray.length === 0) {
+      return res.status(400).json({ error: 'No users in data' });
+    }
+    
+    // Forward to sync endpoint
+    req.body.users = usersArray;
+    // Use the sync-bot-users logic
+    const db = require('../database/init');
+    let synced = 0;
+    let updated = 0;
+    let errors = 0;
+    
+    const syncPromises = usersArray.map(user => {
+      return new Promise((resolve) => {
+        const telegramId = user.id || user.telegram_id;
+        if (!telegramId) {
+          errors++;
+          resolve();
+          return;
+        }
+        
+        db.get('SELECT * FROM users WHERE telegram_id = ?', [telegramId], (err, existing) => {
+          if (err) {
+            console.error('❌ Error checking user:', err);
+            errors++;
+            resolve();
+            return;
+          }
+          
+          if (existing) {
+            db.run(
+              'UPDATE users SET username = ?, first_name = ?, last_name = ?, phone = COALESCE(?, phone), profile_link = COALESCE(?, profile_link), photo_url = COALESCE(?, photo_url), updated_at = CURRENT_TIMESTAMP WHERE telegram_id = ?',
+              [
+                user.username || existing.username,
+                user.first_name || existing.first_name,
+                user.last_name || existing.last_name || null,
+                user.phone || null,
+                user.profile_link || existing.profile_link || null,
+                user.photo_url || existing.photo_url || null,
+                telegramId
+              ],
+              function(updateErr) {
+                if (updateErr) {
+                  console.error('❌ Error updating user:', updateErr);
+                  errors++;
+                } else {
+                  updated++;
+                }
+                resolve();
+              }
+            );
+          } else {
+            db.run(
+              'INSERT INTO users (telegram_id, username, first_name, last_name, phone, profile_link, photo_url) VALUES (?, ?, ?, ?, ?, ?, ?)',
+              [
+                telegramId,
+                user.username || null,
+                user.first_name || null,
+                user.last_name || null,
+                user.phone || null,
+                user.profile_link || (user.username ? `https://t.me/${user.username}` : null),
+                user.photo_url || null
+              ],
+              function(insertErr) {
+                if (insertErr) {
+                  console.error('❌ Error creating user:', insertErr);
+                  errors++;
+                } else {
+                  synced++;
+                }
+                resolve();
+              }
+            );
+          }
+        });
+      });
+    });
+    
+    Promise.all(syncPromises).then(() => {
+      res.json({
+        status: 'success',
+        message: 'Users uploaded and synchronized',
+        synced: synced,
+        updated: updated,
+        errors: errors,
+        total: usersArray.length,
+        timestamp: new Date().toISOString()
+      });
+    });
+    
+  } catch (error) {
+    console.error('❌ Error uploading bot users:', error);
+    res.status(500).json({ error: 'Internal server error', message: error.message });
   }
 });
 

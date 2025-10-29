@@ -1,8 +1,61 @@
 const sqlite3 = require('sqlite3').verbose();
 const path = require('path');
+const fs = require('fs');
+const os = require('os');
 
-const dbPath = path.join(__dirname, 'club.db');
-const db = new sqlite3.Database(dbPath);
+// Для Vercel и других serverless окружений используем /tmp
+// Проверяем, доступна ли запись в текущую директорию
+function getDbPath() {
+  // Проверяем, находимся ли мы на Vercel или подобной платформе
+  if (process.env.VERCEL || process.env.NOW || process.env.LAMBDA_TASK_ROOT) {
+    const tmpPath = path.join(os.tmpdir(), 'club.db');
+    console.log(`📂 Using temporary directory for database: ${tmpPath}`);
+    return tmpPath;
+  }
+  
+  // Проверяем доступность записи в текущую директорию
+  const defaultPath = path.join(__dirname, 'club.db');
+  try {
+    // Пробуем создать тестовый файл
+    const testFile = path.join(__dirname, '.write-test');
+    fs.writeFileSync(testFile, 'test');
+    fs.unlinkSync(testFile);
+    return defaultPath;
+  } catch (error) {
+    // Если не можем писать в текущую директорию, используем /tmp
+    const tmpPath = path.join(os.tmpdir(), 'club.db');
+    console.log(`⚠️ Cannot write to ${__dirname}, using temporary directory: ${tmpPath}`);
+    console.log(`   Error: ${error.message}`);
+    return tmpPath;
+  }
+}
+
+const dbPath = getDbPath();
+
+// Создаем базу данных с режимом открытия, который поддерживает WAL mode для лучшей производительности
+const db = new sqlite3.Database(dbPath, (err) => {
+  if (err) {
+    console.error('❌ Error opening database:', err);
+    throw err;
+  }
+  console.log(`✅ Database opened at: ${dbPath}`);
+  
+  // Включаем WAL mode для лучшей производительности и поддержки конкурентного доступа
+  db.run('PRAGMA journal_mode = WAL;', (err) => {
+    if (err) {
+      console.warn('⚠️ Could not enable WAL mode:', err);
+    } else {
+      console.log('✅ WAL mode enabled');
+    }
+  });
+  
+  // Включаем foreign keys
+  db.run('PRAGMA foreign_keys = ON;', (err) => {
+    if (err) {
+      console.warn('⚠️ Could not enable foreign keys:', err);
+    }
+  });
+});
 
 // Создание таблиц
 db.serialize(() => {

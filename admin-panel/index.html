@@ -355,7 +355,18 @@
 
             <div id="users" class="tab-content">
                 <div class="card">
-                    <h3>👥 Пользователи</h3>
+                    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px;">
+                        <h3 style="margin: 0;">👥 Пользователи</h3>
+                        <div style="display: flex; gap: 10px;">
+                            <button class="btn btn-secondary" onclick="syncBotUsers()" id="syncBotUsersBtn" style="font-size: 14px; padding: 10px 15px;">
+                                🔄 Синхронизировать с ботом
+                            </button>
+                            <button class="btn btn-secondary" onclick="loadUsers()" style="font-size: 14px; padding: 10px 15px;">
+                                🔃 Обновить
+                            </button>
+                        </div>
+                    </div>
+                    <div id="sync-status" style="display: none; margin-bottom: 15px;"></div>
                     <div id="users-list">
                         <div class="loading">Загрузка пользователей...</div>
                     </div>
@@ -754,6 +765,116 @@
                 document.getElementById('users-list').innerHTML = '<div class="error">Ошибка загрузки пользователей</div>';
             }
         }
+
+        // Синхронизация пользователей из бота
+        async function syncBotUsers() {
+            const syncBtn = document.getElementById('syncBotUsersBtn');
+            const syncStatus = document.getElementById('sync-status');
+            
+            // Показываем модальное окно для ввода данных
+            const jsonData = prompt(
+                '📋 Вставьте JSON данные пользователей из бота (из файла data/users.json):\n\n' +
+                'На сервере с ботом выполните команду:\n' +
+                'cat telegram-bot-files/data/users.json\n\n' +
+                'И скопируйте весь вывод сюда:'
+            );
+            
+            if (!jsonData || jsonData.trim() === '') {
+                return;
+            }
+            
+            syncBtn.disabled = true;
+            syncBtn.textContent = '🔄 Синхронизация...';
+            syncStatus.style.display = 'block';
+            syncStatus.className = 'loading';
+            syncStatus.textContent = '⏳ Синхронизация пользователей...';
+            
+            try {
+                let usersData;
+                
+                // Парсим JSON
+                try {
+                    usersData = JSON.parse(jsonData.trim());
+                } catch (parseError) {
+                    throw new Error('Неверный формат JSON. Проверьте данные.');
+                }
+                
+                // Отправляем на сервер
+                const response = await fetch('/api/upload-bot-users', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify(usersData)
+                });
+                
+                const result = await response.json();
+                
+                if (!response.ok) {
+                    throw new Error(result.error || 'Ошибка синхронизации');
+                }
+                
+                // Показываем результат
+                syncStatus.className = 'success';
+                syncStatus.innerHTML = `
+                    ✅ Синхронизация завершена!<br>
+                    📊 Статистика:<br>
+                    • Создано: ${result.synced || 0}<br>
+                    • Обновлено: ${result.updated || 0}<br>
+                    • Ошибок: ${result.errors || 0}<br>
+                    • Всего обработано: ${result.total || 0}
+                `;
+                
+                // Обновляем список пользователей
+                setTimeout(() => {
+                    loadUsers();
+                }, 1000);
+                
+                showToast('success', 'Синхронизация завершена', `Создано: ${result.synced}, Обновлено: ${result.updated}`);
+                
+            } catch (error) {
+                console.error('Ошибка синхронизации:', error);
+                syncStatus.className = 'error';
+                syncStatus.textContent = '❌ Ошибка: ' + error.message;
+                showToast('error', 'Ошибка синхронизации', error.message);
+            } finally {
+                syncBtn.disabled = false;
+                syncBtn.textContent = '🔄 Синхронизировать с ботом';
+            }
+        }
+
+        // Автоматическая синхронизация при загрузке вкладки пользователей (с задержкой)
+        let usersTabLoaded = false;
+        const originalLoadUsers = loadUsers;
+        loadUsers = function() {
+            originalLoadUsers();
+            
+            // Автоматически предлагаем синхронизацию при первом открытии, если нет пользователей
+            if (!usersTabLoaded) {
+                usersTabLoaded = true;
+                setTimeout(async () => {
+                    try {
+                        const response = await fetch('/api/users');
+                        const users = await response.json();
+                        if (!users || users.length === 0) {
+                            const syncStatus = document.getElementById('sync-status');
+                            if (syncStatus) {
+                                syncStatus.style.display = 'block';
+                                syncStatus.className = 'info';
+                                syncStatus.innerHTML = `
+                                    💡 Нет пользователей в базе. Загрузите данные из бота, нажав кнопку "🔄 Синхронизировать с ботом"<br>
+                                    <small style="color: rgba(255,255,255,0.6);">
+                                        Данные находятся в файле: telegram-bot-files/data/users.json
+                                    </small>
+                                `;
+                            }
+                        }
+                    } catch (e) {
+                        console.error(e);
+                    }
+                }, 500);
+            }
+        };
 
         // Загрузка мероприятий
         async function loadEventsData() {
