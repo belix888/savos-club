@@ -10,8 +10,8 @@ db.serialize(() => {
   db.run(`
     CREATE TABLE IF NOT EXISTS users (
       id INTEGER PRIMARY KEY AUTOINCREMENT,
-      telegram_id INTEGER UNIQUE NOT NULL,
-      username TEXT,
+      telegram_id INTEGER UNIQUE,
+      username TEXT UNIQUE,
       first_name TEXT,
       last_name TEXT,
       phone TEXT,
@@ -26,6 +26,15 @@ db.serialize(() => {
       updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
     )
   `);
+  
+  // Миграция: создаем уникальный индекс для username
+  // SQLite не поддерживает изменение UNIQUE напрямую для существующих таблиц,
+  // поэтому создаем уникальный индекс
+  db.run('CREATE UNIQUE INDEX IF NOT EXISTS idx_username_unique ON users(username) WHERE username IS NOT NULL', (err) => {
+    if (err && !String(err.message).includes('duplicate') && !String(err.message).includes('already exists')) {
+      console.warn('Migration: username unique index warning:', err.message);
+    }
+  });
 
   // Миграции для существующей таблицы users: добавляем недостающие столбцы
   // Примечание: SQLite не поддерживает IF NOT EXISTS для столбцов, поэтому игнорируем ошибку, если столбец уже существует
@@ -39,6 +48,7 @@ db.serialize(() => {
       console.warn('Migration: photo_url add column warning:', err.message);
     }
   });
+  
 
   // Таблица мероприятий (афиша)
   db.run(`

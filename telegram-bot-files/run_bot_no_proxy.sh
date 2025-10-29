@@ -24,3 +24,4 @@ echo "🚀 Запуск бота..."
 # Запускаем бота
 python3 bot_working.py
 
+

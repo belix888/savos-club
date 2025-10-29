@@ -1,0 +1,468 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>SavosBot Club - Регистрация</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            background: linear-gradient(135deg, #1a1a1a 0%, #2d1b1b 100%);
+            min-height: 100vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: #ffffff;
+            padding: 20px;
+        }
+
+        .register-container {
+            background: rgba(255, 255, 255, 0.1);
+            backdrop-filter: blur(20px);
+            border-radius: 20px;
+            padding: 40px;
+            width: 100%;
+            max-width: 450px;
+            border: 1px solid rgba(255, 255, 255, 0.2);
+            box-shadow: 0 20px 40px rgba(0, 0, 0, 0.3);
+            animation: slideUp 0.6s ease-out;
+        }
+
+        @keyframes slideUp {
+            from {
+                opacity: 0;
+                transform: translateY(30px);
+            }
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+
+        .logo {
+            text-align: center;
+            margin-bottom: 30px;
+        }
+
+        .logo h1 {
+            font-size: 32px;
+            font-weight: 700;
+            background: linear-gradient(90deg, #dc2626, #ef4444);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+            margin-bottom: 10px;
+            text-shadow: 2px 2px 4px rgba(0, 0, 0, 0.3);
+        }
+
+        .logo p {
+            color: rgba(255, 255, 255, 0.8);
+            font-size: 16px;
+        }
+
+        .info-box {
+            background: rgba(239, 68, 68, 0.1);
+            border: 1px solid rgba(239, 68, 68, 0.3);
+            border-radius: 12px;
+            padding: 15px;
+            margin-bottom: 25px;
+            font-size: 14px;
+            color: rgba(255, 255, 255, 0.9);
+            line-height: 1.6;
+        }
+
+        .info-box strong {
+            color: #ef4444;
+        }
+
+        .form-group {
+            margin-bottom: 20px;
+        }
+
+        .form-group label {
+            display: block;
+            margin-bottom: 8px;
+            font-weight: 600;
+            color: rgba(255, 255, 255, 0.9);
+            font-size: 14px;
+        }
+
+        .form-group label .required {
+            color: #ef4444;
+        }
+
+        .form-group input {
+            width: 100%;
+            padding: 15px 20px;
+            border: 2px solid rgba(255, 255, 255, 0.2);
+            border-radius: 12px;
+            background: rgba(255, 255, 255, 0.1);
+            color: white;
+            font-size: 16px;
+            transition: all 0.3s ease;
+            outline: none;
+        }
+
+        .form-group input:focus {
+            border-color: #ef4444;
+            background: rgba(255, 255, 255, 0.15);
+            box-shadow: 0 0 0 3px rgba(239, 68, 68, 0.2);
+        }
+
+        .form-group input::placeholder {
+            color: rgba(255, 255, 255, 0.5);
+        }
+
+        .form-group input.error {
+            border-color: #ef4444;
+            animation: shake 0.3s;
+        }
+
+        @keyframes shake {
+            0%, 100% { transform: translateX(0); }
+            25% { transform: translateX(-5px); }
+            75% { transform: translateX(5px); }
+        }
+
+        .help-text {
+            font-size: 12px;
+            color: rgba(255, 255, 255, 0.6);
+            margin-top: 5px;
+        }
+
+        .register-btn {
+            width: 100%;
+            padding: 15px;
+            background: linear-gradient(90deg, #dc2626, #ef4444);
+            color: white;
+            border: none;
+            border-radius: 12px;
+            font-size: 16px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            box-shadow: 0 8px 25px rgba(220, 38, 38, 0.3);
+            margin-bottom: 20px;
+        }
+
+        .register-btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 12px 35px rgba(220, 38, 38, 0.4);
+        }
+
+        .register-btn:active {
+            transform: translateY(0);
+        }
+
+        .register-btn:disabled {
+            opacity: 0.6;
+            cursor: not-allowed;
+            transform: none;
+        }
+
+        .error-message {
+            background: rgba(239, 68, 68, 0.2);
+            border: 1px solid #ef4444;
+            color: #ef4444;
+            padding: 12px;
+            border-radius: 8px;
+            margin-bottom: 20px;
+            font-size: 14px;
+            display: none;
+        }
+
+        .error-message.show {
+            display: block;
+            animation: slideDown 0.3s ease;
+        }
+
+        .success-message {
+            background: rgba(34, 197, 94, 0.2);
+            border: 1px solid #22c55e;
+            color: #22c55e;
+            padding: 12px;
+            border-radius: 8px;
+            margin-bottom: 20px;
+            font-size: 14px;
+            display: none;
+        }
+
+        .success-message.show {
+            display: block;
+            animation: slideDown 0.3s ease;
+        }
+
+        @keyframes slideDown {
+            from {
+                opacity: 0;
+                transform: translateY(-10px);
+            }
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+
+        .loading {
+            display: none;
+            text-align: center;
+            color: #ef4444;
+            font-size: 14px;
+            margin-bottom: 20px;
+        }
+
+        .loading.show {
+            display: block;
+        }
+
+        .login-link {
+            text-align: center;
+            margin-top: 20px;
+            color: rgba(255, 255, 255, 0.7);
+            font-size: 14px;
+        }
+
+        .login-link a {
+            color: #ef4444;
+            text-decoration: none;
+            font-weight: 600;
+        }
+
+        .login-link a:hover {
+            text-decoration: underline;
+        }
+
+        @media (max-width: 480px) {
+            .register-container {
+                padding: 30px 20px;
+            }
+            
+            .logo h1 {
+                font-size: 28px;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="register-container">
+        <div class="logo">
+            <h1>🏛️ SavosBot Club</h1>
+            <p>Регистрация нового пользователя</p>
+        </div>
+
+        <div class="info-box">
+            <strong>📱 Как это работает:</strong><br>
+            Введите ваш <strong>Telegram username</strong> (без @), имя и телефон. После регистрации вы сможете пользоваться всеми функциями клуба.
+        </div>
+
+        <div class="error-message" id="errorMessage"></div>
+        <div class="success-message" id="successMessage"></div>
+        <div class="loading" id="loading">⏳ Регистрация...</div>
+
+        <form id="registerForm">
+            <div class="form-group">
+                <label for="telegramUsername">
+                    Telegram Username <span class="required">*</span>
+                </label>
+                <input 
+                    type="text" 
+                    id="telegramUsername" 
+                    placeholder="username (без @)" 
+                    pattern="[a-zA-Z0-9_]{5,32}"
+                    required
+                    autocomplete="username"
+                >
+                <div class="help-text">Только буквы, цифры и подчеркивание, от 5 до 32 символов</div>
+            </div>
+
+            <div class="form-group">
+                <label for="firstName">
+                    Имя <span class="required">*</span>
+                </label>
+                <input 
+                    type="text" 
+                    id="firstName" 
+                    placeholder="Ваше имя" 
+                    required
+                    autocomplete="given-name"
+                >
+            </div>
+
+            <div class="form-group">
+                <label for="lastName">
+                    Фамилия
+                </label>
+                <input 
+                    type="text" 
+                    id="lastName" 
+                    placeholder="Ваша фамилия (необязательно)"
+                    autocomplete="family-name"
+                >
+            </div>
+
+            <div class="form-group">
+                <label for="phone">
+                    Телефон <span class="required">*</span>
+                </label>
+                <input 
+                    type="tel" 
+                    id="phone" 
+                    placeholder="+79991234567 или 89991234567" 
+                    required
+                    autocomplete="tel"
+                >
+                <div class="help-text">Формат: +7XXXXXXXXXX или 8XXXXXXXXXX</div>
+            </div>
+
+            <button type="submit" class="register-btn" id="registerBtn">
+                ✨ Зарегистрироваться
+            </button>
+        </form>
+
+        <div class="login-link">
+            Уже есть аккаунт? <a href="/login">Войти</a>
+        </div>
+    </div>
+
+    <script>
+        // Валидация Telegram username
+        function validateTelegramUsername(username) {
+            // Убираем @ если есть
+            username = username.replace('@', '').trim();
+            
+            // Проверяем формат
+            const regex = /^[a-zA-Z0-9_]{5,32}$/;
+            if (!regex.test(username)) {
+                return { valid: false, message: 'Username должен содержать только буквы, цифры и подчеркивание (5-32 символа)' };
+            }
+            
+            return { valid: true, username: username };
+        }
+
+        // Валидация телефона
+        function validatePhone(phone) {
+            // Убираем пробелы и дефисы
+            phone = phone.replace(/[\s\-()]/g, '');
+            
+            // Проверяем форматы: +79991234567 или 89991234567
+            const regex = /^(\+7|8)\d{10}$/;
+            if (!regex.test(phone)) {
+                return { valid: false, message: 'Номер должен быть в формате +79991234567 или 89991234567' };
+            }
+            
+            // Нормализуем к формату +7
+            if (phone.startsWith('8')) {
+                phone = '+7' + phone.substring(1);
+            }
+            
+            return { valid: true, phone: phone };
+        }
+
+        // Обработка формы регистрации
+        document.getElementById('registerForm').addEventListener('submit', async function(e) {
+            e.preventDefault();
+            
+            const telegramUsername = document.getElementById('telegramUsername').value.trim();
+            const firstName = document.getElementById('firstName').value.trim();
+            const lastName = document.getElementById('lastName').value.trim();
+            const phone = document.getElementById('phone').value.trim();
+            
+            const registerBtn = document.getElementById('registerBtn');
+            const loading = document.getElementById('loading');
+            const errorMessage = document.getElementById('errorMessage');
+            const successMessage = document.getElementById('successMessage');
+
+            // Скрываем сообщения
+            errorMessage.classList.remove('show');
+            successMessage.classList.remove('show');
+
+            // Убираем классы ошибок с полей
+            document.querySelectorAll('.form-group input').forEach(input => {
+                input.classList.remove('error');
+            });
+
+            // Валидация Telegram username
+            const usernameValidation = validateTelegramUsername(telegramUsername);
+            if (!usernameValidation.valid) {
+                document.getElementById('telegramUsername').classList.add('error');
+                errorMessage.textContent = '❌ ' + usernameValidation.message;
+                errorMessage.classList.add('show');
+                return;
+            }
+
+            // Валидация имени
+            if (firstName.length < 2) {
+                document.getElementById('firstName').classList.add('error');
+                errorMessage.textContent = '❌ Имя должно содержать минимум 2 символа';
+                errorMessage.classList.add('show');
+                return;
+            }
+
+            // Валидация телефона
+            const phoneValidation = validatePhone(phone);
+            if (!phoneValidation.valid) {
+                document.getElementById('phone').classList.add('error');
+                errorMessage.textContent = '❌ ' + phoneValidation.message;
+                errorMessage.classList.add('show');
+                return;
+            }
+
+            // Показываем загрузку
+            registerBtn.disabled = true;
+            loading.classList.add('show');
+
+            try {
+                // Отправляем запрос на регистрацию
+                const response = await fetch('/api/register', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({
+                        username: usernameValidation.username,
+                        first_name: firstName,
+                        last_name: lastName || null,
+                        phone: phoneValidation.phone
+                    })
+                });
+
+                const data = await response.json();
+
+                if (!response.ok) {
+                    throw new Error(data.error || 'Ошибка регистрации');
+                }
+
+                // Успешная регистрация
+                successMessage.textContent = `✅ ${data.message || 'Регистрация успешна! Теперь вы можете войти в систему.'}`;
+                successMessage.classList.add('show');
+
+                // Перенаправляем на страницу входа через 2 секунды
+                setTimeout(() => {
+                    window.location.href = '/login';
+                }, 2000);
+
+            } catch (error) {
+                errorMessage.textContent = '❌ ' + (error.message || 'Ошибка регистрации. Попробуйте позже.');
+                errorMessage.classList.add('show');
+            } finally {
+                // Скрываем загрузку
+                registerBtn.disabled = false;
+                loading.classList.remove('show');
+            }
+        });
+
+        // Автоматическое удаление @ из username
+        document.getElementById('telegramUsername').addEventListener('input', function(e) {
+            let value = e.target.value.replace('@', '');
+            e.target.value = value;
+        });
+    </script>
+</body>
+</html>
+

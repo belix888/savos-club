@@ -23,6 +23,10 @@ app.get('/login', (req, res) => {
   res.sendFile(path.join(__dirname, '../login.html'));
 });
 
+app.get('/register', (req, res) => {
+  res.sendFile(path.join(__dirname, '../register.html'));
+});
+
 app.get('/admin-panel', (req, res) => {
   // Проверяем localStorage токен или отправляем на страницу логина
   // Если это запрос напрямую к admin-panel, нужно проверить аутентификацию через cookie/session
@@ -121,6 +125,97 @@ app.post('/api/auth/telegram', async (req, res) => {
   }
 });
 
+// Public registration endpoint (no API key required)
+app.post('/api/register', (req, res) => {
+  try {
+    const { username, first_name, last_name, phone } = req.body;
+    
+    // Validate required fields
+    if (!username || !first_name || !phone) {
+      return res.status(400).json({ error: 'Username, имя и телефон обязательны для заполнения' });
+    }
+    
+    // Validate username format
+    const usernameRegex = /^[a-zA-Z0-9_]{5,32}$/;
+    if (!usernameRegex.test(username)) {
+      return res.status(400).json({ error: 'Username должен содержать только буквы, цифры и подчеркивание (5-32 символа)' });
+    }
+    
+    // Validate phone format
+    const phoneRegex = /^\+?7\d{10}$/;
+    let normalizedPhone = phone.replace(/[\s\-()]/g, '');
+    if (normalizedPhone.startsWith('8')) {
+      normalizedPhone = '+7' + normalizedPhone.substring(1);
+    }
+    if (!phoneRegex.test(normalizedPhone)) {
+      return res.status(400).json({ error: 'Номер телефона должен быть в формате +79991234567 или 89991234567' });
+    }
+    
+    // Connect to database
+    const db = require('../database/init');
+    
+    // Check if username already exists
+    db.get('SELECT * FROM users WHERE username = ?', [username], (err, existingUser) => {
+      if (err) {
+        console.error('❌ Error checking username:', err);
+        return res.status(500).json({ error: 'Ошибка базы данных' });
+      }
+      
+      if (existingUser) {
+        return res.status(409).json({ error: 'Пользователь с таким Telegram username уже зарегистрирован' });
+      }
+      
+      // Check if phone already exists
+      db.get('SELECT * FROM users WHERE phone = ?', [normalizedPhone], (err, existingPhone) => {
+        if (err) {
+          console.error('❌ Error checking phone:', err);
+          return res.status(500).json({ error: 'Ошибка базы данных' });
+        }
+        
+        if (existingPhone) {
+          return res.status(409).json({ error: 'Пользователь с таким номером телефона уже зарегистрирован' });
+        }
+        
+        // Create new user (without telegram_id for website registration)
+        db.run(
+          'INSERT INTO users (username, first_name, last_name, phone, profile_link) VALUES (?, ?, ?, ?, ?)',
+          [
+            username, 
+            first_name, 
+            last_name || null, 
+            normalizedPhone,
+            `https://t.me/${username}` // Create profile link from username
+          ],
+          function(err) {
+            if (err) {
+              console.error('❌ Error creating user:', err);
+              // Check if it's a unique constraint violation
+              if (err.message && err.message.includes('UNIQUE constraint failed')) {
+                return res.status(409).json({ error: 'Пользователь с такими данными уже существует' });
+              }
+              return res.status(500).json({ error: 'Ошибка при создании пользователя' });
+            }
+            
+            console.log('✅ User registered via website:', username, 'Internal ID:', this.lastID);
+            res.json({
+              status: 'success',
+              message: 'Регистрация успешна! Теперь вы можете войти в систему.',
+              user_id: this.lastID,
+              internal_id: this.lastID,
+              username: username,
+              timestamp: new Date().toISOString()
+            });
+          }
+        );
+      });
+    });
+    
+  } catch (error) {
+    console.error('❌ Error processing registration:', error);
+    res.status(500).json({ error: 'Внутренняя ошибка сервера' });
+  }
+});
+
 // Users API endpoints
 app.post('/api/users', (req, res) => {
   try {
@@ -145,15 +240,15 @@ app.post('/api/users', (req, res) => {
     // Connect to database
     const db = require('../database/init');
     
-    // Check if user exists
-    db.get('SELECT * FROM users WHERE telegram_id = ?', [userData.id], (err, existingUser) => {
+    // Check if user exists by telegram_id
+    db.get('SELECT * FROM users WHERE telegram_id = ?', [userData.id], (err, existingUserByTelegramId) => {
       if (err) {
         console.error('❌ Error checking user:', err);
         return res.status(500).json({ error: 'Database error' });
       }
       
-      if (existingUser) {
-        // Update existing user
+      if (existingUserByTelegramId) {
+        // Update existing user by telegram_id
         db.run(
           'UPDATE users SET username = ?, first_name = ?, last_name = ?, phone = ?, profile_link = ?, photo_url = ?, updated_at = CURRENT_TIMESTAMP WHERE telegram_id = ?',
           [userData.username, userData.first_name, userData.last_name, userData.phone, userData.profile_link, userData.photo_url, userData.id],
@@ -166,14 +261,65 @@ app.post('/api/users', (req, res) => {
             res.json({
               status: 'success',
               message: 'User updated',
-              user_id: existingUser.id,
-              internal_id: existingUser.id,
+              user_id: existingUserByTelegramId.id,
+              internal_id: existingUserByTelegramId.id,
               timestamp: new Date().toISOString()
             });
           }
         );
+      } else if (userData.username) {
+        // Check if user exists by username (registered via website)
+        db.get('SELECT * FROM users WHERE username = ?', [userData.username], (err, existingUserByUsername) => {
+          if (err) {
+            console.error('❌ Error checking user by username:', err);
+            return res.status(500).json({ error: 'Database error' });
+          }
+          
+          if (existingUserByUsername) {
+            // User registered via website - link Telegram account
+            console.log('🔗 Linking Telegram account to existing website user:', userData.username);
+            db.run(
+              'UPDATE users SET telegram_id = ?, first_name = ?, last_name = ?, phone = COALESCE(?, phone), profile_link = COALESCE(?, profile_link), photo_url = ?, updated_at = CURRENT_TIMESTAMP WHERE username = ?',
+              [userData.id, userData.first_name, userData.last_name, userData.phone, userData.profile_link, userData.photo_url, userData.username],
+              function(err) {
+                if (err) {
+                  console.error('❌ Error linking Telegram account:', err);
+                  return res.status(500).json({ error: 'Database error' });
+                }
+                console.log('✅ Telegram account linked to user:', existingUserByUsername.id);
+                res.json({
+                  status: 'success',
+                  message: 'Telegram account linked to existing user',
+                  user_id: existingUserByUsername.id,
+                  internal_id: existingUserByUsername.id,
+                  timestamp: new Date().toISOString()
+                });
+              }
+            );
+          } else {
+            // Create new user (will get AUTOINCREMENT ID)
+            db.run(
+              'INSERT INTO users (telegram_id, username, first_name, last_name, phone, profile_link, photo_url) VALUES (?, ?, ?, ?, ?, ?, ?)',
+              [userData.id, userData.username, userData.first_name, userData.last_name, userData.phone, userData.profile_link, userData.photo_url],
+              function(err) {
+                if (err) {
+                  console.error('❌ Error creating user:', err);
+                  return res.status(500).json({ error: 'Database error' });
+                }
+                console.log('✅ User created:', userData.id, 'Internal ID:', this.lastID);
+                res.json({
+                  status: 'success',
+                  message: 'User created',
+                  user_id: userData.id,
+                  internal_id: this.lastID,
+                  timestamp: new Date().toISOString()
+                });
+              }
+            );
+          }
+        });
       } else {
-        // Create new user (will get AUTOINCREMENT ID)
+        // No telegram_id match and no username - create new user
         db.run(
           'INSERT INTO users (telegram_id, username, first_name, last_name, phone, profile_link, photo_url) VALUES (?, ?, ?, ?, ?, ?, ?)',
           [userData.id, userData.username, userData.first_name, userData.last_name, userData.phone, userData.profile_link, userData.photo_url],
