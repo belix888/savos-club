@@ -75,6 +75,8 @@ db.serialize(() => {
       is_waiter BOOLEAN DEFAULT 0,
       is_admin BOOLEAN DEFAULT 0,
       is_super_admin BOOLEAN DEFAULT 0,
+      is_bartender BOOLEAN DEFAULT 0,
+      chips DECIMAL(10,2) DEFAULT 0,
       created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
       updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
     )
@@ -99,6 +101,18 @@ db.serialize(() => {
   db.run('ALTER TABLE users ADD COLUMN photo_url TEXT', (err) => {
     if (err && !String(err.message).includes('duplicate column name')) {
       console.warn('Migration: photo_url add column warning:', err.message);
+    }
+  });
+  
+  // Миграция: добавляем поле для старшего бармена и фишек
+  db.run('ALTER TABLE users ADD COLUMN is_bartender BOOLEAN DEFAULT 0', (err) => {
+    if (err && !String(err.message).includes('duplicate column name')) {
+      console.warn('Migration: is_bartender add column warning:', err.message);
+    }
+  });
+  db.run('ALTER TABLE users ADD COLUMN chips DECIMAL(10,2) DEFAULT 0', (err) => {
+    if (err && !String(err.message).includes('duplicate column name')) {
+      console.warn('Migration: chips add column warning:', err.message);
     }
   });
   
@@ -233,6 +247,20 @@ db.serialize(() => {
       value TEXT,
       description TEXT,
       updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
+    )
+  `);
+
+  // Таблица логов начислений фишек
+  db.run(`
+    CREATE TABLE IF NOT EXISTS chips_logs (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      user_id INTEGER NOT NULL,
+      bartender_id INTEGER NOT NULL,
+      amount DECIMAL(10,2) NOT NULL,
+      reason TEXT,
+      created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+      FOREIGN KEY (user_id) REFERENCES users (id),
+      FOREIGN KEY (bartender_id) REFERENCES users (id)
     )
   `);
 

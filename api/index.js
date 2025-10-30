@@ -383,8 +383,10 @@ app.get('/api/session', (req, res) => {
           first_name: user.first_name,
           last_name: user.last_name,
           phone: user.phone,
+          chips: parseFloat(user.chips || 0),
           is_admin: !!user.is_admin,
-          is_super_admin: !!user.is_super_admin
+          is_super_admin: !!user.is_super_admin,
+          is_bartender: !!user.is_bartender
         }
       });
     });
@@ -527,28 +529,35 @@ app.post('/api/users', (req, res) => {
 app.get('/api/users/:id', (req, res) => {
   try {
     const userId = req.params.id;
-    const authHeader = req.headers.authorization;
+    const db = require('../database/init');
     
-    // Check API key
-    if (!authHeader || !authHeader.startsWith('Bearer ')) {
-      return res.status(401).json({ error: 'Unauthorized' });
-    }
-    
-    const apiKey = authHeader.substring(7);
-    if (apiKey !== process.env.API_KEY) {
-      return res.status(401).json({ error: 'Invalid API key' });
-    }
-    
-    // In production, fetch from database
-    // For now, return mock data
-    res.json({
-      id: parseInt(userId),
-      username: 'user_' + userId,
-      first_name: 'User',
-      last_name: 'Name',
-      is_active: true,
-      last_seen: new Date().toISOString(),
-      source: 'website'
+    db.get('SELECT * FROM users WHERE id = ?', [userId], (err, user) => {
+      if (err) {
+        console.error('❌ Error fetching user:', err);
+        return res.status(500).json({ error: 'Database error' });
+      }
+      if (!user) {
+        return res.status(404).json({ error: 'User not found' });
+      }
+      
+      res.json({
+        id: user.id,
+        username: user.username,
+        first_name: user.first_name,
+        last_name: user.last_name,
+        phone: user.phone,
+        profile_link: user.profile_link,
+        photo_url: user.photo_url,
+        email: user.email,
+        is_admin: !!user.is_admin,
+        is_super_admin: !!user.is_super_admin,
+        is_bartender: !!user.is_bartender,
+        is_resident: !!user.is_resident,
+        is_waiter: !!user.is_waiter,
+        chips: parseFloat(user.chips || 0),
+        created_at: user.created_at,
+        updated_at: user.updated_at
+      });
     });
     
   } catch (error) {
@@ -561,34 +570,267 @@ app.put('/api/users/:id', (req, res) => {
   try {
     const userId = req.params.id;
     const updateData = req.body;
-    const authHeader = req.headers.authorization;
+    const db = require('../database/init');
     
-    // Check API key
-    if (!authHeader || !authHeader.startsWith('Bearer ')) {
-      return res.status(401).json({ error: 'Unauthorized' });
+    // Подготавливаем поля для обновления
+    const updates = [];
+    const values = [];
+    
+    // Поддерживаем обновление различных полей
+    if (updateData.chips !== undefined) {
+      updates.push('chips = ?');
+      values.push(parseFloat(updateData.chips) || 0);
+    }
+    if (updateData.is_admin !== undefined) {
+      updates.push('is_admin = ?');
+      values.push(updateData.is_admin ? 1 : 0);
+    }
+    if (updateData.is_bartender !== undefined) {
+      updates.push('is_bartender = ?');
+      values.push(updateData.is_bartender ? 1 : 0);
+    }
+    if (updateData.is_resident !== undefined) {
+      updates.push('is_resident = ?');
+      values.push(updateData.is_resident ? 1 : 0);
+    }
+    if (updateData.is_waiter !== undefined) {
+      updates.push('is_waiter = ?');
+      values.push(updateData.is_waiter ? 1 : 0);
+    }
+    if (updateData.first_name !== undefined) {
+      updates.push('first_name = ?');
+      values.push(updateData.first_name);
+    }
+    if (updateData.last_name !== undefined) {
+      updates.push('last_name = ?');
+      values.push(updateData.last_name);
+    }
+    if (updateData.phone !== undefined) {
+      updates.push('phone = ?');
+      values.push(updateData.phone);
+    }
+    if (updateData.username !== undefined) {
+      updates.push('username = ?');
+      values.push(updateData.username);
     }
     
-    const apiKey = authHeader.substring(7);
-    if (apiKey !== process.env.API_KEY) {
-      return res.status(401).json({ error: 'Invalid API key' });
+    // Если есть обновления, добавляем updated_at и выполняем запрос
+    if (updates.length === 0) {
+      return res.status(400).json({ error: 'No fields to update' });
     }
     
-    // Log update (in production, update database)
-    console.log('✅ User update received:', {
-      user_id: userId,
-      update_data: updateData,
-      timestamp: new Date().toISOString()
-    });
+    updates.push('updated_at = CURRENT_TIMESTAMP');
+    values.push(userId);
     
-    res.json({
-      status: 'success',
-      message: 'User updated',
-      user_id: userId,
-      timestamp: new Date().toISOString()
+    const sql = `UPDATE users SET ${updates.join(', ')} WHERE id = ?`;
+    
+    db.run(sql, values, function(err) {
+      if (err) {
+        console.error('❌ Error updating user:', err);
+        return res.status(500).json({ error: 'Database error', details: err.message });
+      }
+      
+      console.log('✅ User updated:', userId, updateData);
+      
+      // Возвращаем обновленные данные пользователя
+      db.get('SELECT * FROM users WHERE id = ?', [userId], (err, user) => {
+        if (err) {
+          return res.json({
+            status: 'success',
+            message: 'User updated',
+            user_id: userId
+          });
+        }
+        
+        res.json({
+          status: 'success',
+          message: 'User updated',
+          user: {
+            id: user.id,
+            username: user.username,
+            first_name: user.first_name,
+            last_name: user.last_name,
+            chips: parseFloat(user.chips || 0),
+            is_admin: !!user.is_admin,
+            is_bartender: !!user.is_bartender,
+            is_resident: !!user.is_resident,
+            is_waiter: !!user.is_waiter
+          }
+        });
+      });
     });
     
   } catch (error) {
     console.error('❌ Error updating user:', error);
+    res.status(500).json({ error: 'Internal server error' });
+  }
+});
+
+// Chips API endpoints
+// POST /api/chips/add - бармен начисляет фишки пользователю
+app.post('/api/chips/add', (req, res) => {
+  try {
+    const { user_id, amount, reason } = req.body;
+    const auth = req.headers.authorization || '';
+    
+    if (!auth.startsWith('Bearer ')) {
+      return res.status(401).json({ error: 'No token' });
+    }
+    
+    const token = auth.substring(7);
+    let payload;
+    try {
+      payload = jwt.verify(token, process.env.JWT_SECRET || 'savosbot_club_super_secret_jwt_key_2024');
+    } catch (e) {
+      return res.status(401).json({ error: 'Invalid token' });
+    }
+    
+    // Проверяем, что пользователь является барменом
+    const db = require('../database/init');
+    db.get('SELECT * FROM users WHERE id = ?', [payload.id], (err, bartender) => {
+      if (err) return res.status(500).json({ error: 'Database error' });
+      if (!bartender || !bartender.is_bartender) {
+        return res.status(403).json({ error: 'Только старший бармен может начислять фишки' });
+      }
+      
+      // Проверяем входные данные
+      if (!user_id || !amount || amount <= 0) {
+        return res.status(400).json({ error: 'Неверные данные: требуется user_id и положительное amount' });
+      }
+      
+      // Проверяем, существует ли пользователь
+      db.get('SELECT * FROM users WHERE id = ?', [user_id], (err, user) => {
+        if (err) return res.status(500).json({ error: 'Database error' });
+        if (!user) {
+          return res.status(404).json({ error: 'Пользователь не найден' });
+        }
+        
+        const chipsAmount = parseFloat(amount);
+        const newChips = parseFloat(user.chips || 0) + chipsAmount;
+        
+        // Обновляем баланс фишек пользователя
+        db.run(
+          'UPDATE users SET chips = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?',
+          [newChips, user_id],
+          function(err) {
+            if (err) {
+              console.error('❌ Error updating chips:', err);
+              return res.status(500).json({ error: 'Database error' });
+            }
+            
+            // Записываем в лог
+            db.run(
+              'INSERT INTO chips_logs (user_id, bartender_id, amount, reason) VALUES (?, ?, ?, ?)',
+              [user_id, payload.id, chipsAmount, reason || null],
+              function(err) {
+                if (err) {
+                  console.error('❌ Error logging chips transaction:', err);
+                  // Не возвращаем ошибку, так как фишки уже начислены
+                }
+                
+                console.log(`✅ Chips added: ${chipsAmount} to user ${user_id} by bartender ${payload.id}`);
+                
+                res.json({
+                  status: 'success',
+                  message: `Начислено ${chipsAmount} фишек`,
+                  user_id: user_id,
+                  new_balance: newChips,
+                  amount: chipsAmount
+                });
+              }
+            );
+          }
+        );
+      });
+    });
+    
+  } catch (error) {
+    console.error('❌ Error adding chips:', error);
+    res.status(500).json({ error: 'Internal server error' });
+  }
+});
+
+// GET /api/chips/logs - получить логи начислений фишек (только для админа)
+app.get('/api/chips/logs', (req, res) => {
+  try {
+    const auth = req.headers.authorization || '';
+    
+    if (!auth.startsWith('Bearer ')) {
+      return res.status(401).json({ error: 'No token' });
+    }
+    
+    const token = auth.substring(7);
+    let payload;
+    try {
+      payload = jwt.verify(token, process.env.JWT_SECRET || 'savosbot_club_super_secret_jwt_key_2024');
+    } catch (e) {
+      return res.status(401).json({ error: 'Invalid token' });
+    }
+    
+    // Проверяем, что пользователь является админом
+    const db = require('../database/init');
+    db.get('SELECT * FROM users WHERE id = ?', [payload.id], (err, admin) => {
+      if (err) return res.status(500).json({ error: 'Database error' });
+      if (!admin || (!admin.is_admin && !admin.is_super_admin)) {
+        return res.status(403).json({ error: 'Только администратор может просматривать логи' });
+      }
+      
+      // Получаем логи с информацией о пользователях и барменах
+      const query = `
+        SELECT 
+          cl.id,
+          cl.amount,
+          cl.reason,
+          cl.created_at,
+          u.id as user_id,
+          u.username as user_username,
+          u.first_name as user_first_name,
+          u.last_name as user_last_name,
+          b.id as bartender_id,
+          b.username as bartender_username,
+          b.first_name as bartender_first_name,
+          b.last_name as bartender_last_name
+        FROM chips_logs cl
+        JOIN users u ON cl.user_id = u.id
+        JOIN users b ON cl.bartender_id = b.id
+        ORDER BY cl.created_at DESC
+        LIMIT 1000
+      `;
+      
+      db.all(query, [], (err, logs) => {
+        if (err) {
+          console.error('❌ Error fetching chips logs:', err);
+          return res.status(500).json({ error: 'Database error' });
+        }
+        
+        res.json({
+          status: 'success',
+          logs: logs.map(log => ({
+            id: log.id,
+            amount: parseFloat(log.amount),
+            reason: log.reason,
+            created_at: log.created_at,
+            user: {
+              id: log.user_id,
+              username: log.user_username,
+              first_name: log.user_first_name,
+              last_name: log.user_last_name,
+              full_name: `${log.user_first_name || ''} ${log.user_last_name || ''}`.trim() || log.user_username || `ID: ${log.user_id}`
+            },
+            bartender: {
+              id: log.bartender_id,
+              username: log.bartender_username,
+              first_name: log.bartender_first_name,
+              last_name: log.bartender_last_name,
+              full_name: `${log.bartender_first_name || ''} ${log.bartender_last_name || ''}`.trim() || log.bartender_username || `ID: ${log.bartender_id}`
+            }
+          }))
+        });
+      });
+    });
+    
+  } catch (error) {
+    console.error('❌ Error fetching chips logs:', error);
     res.status(500).json({ error: 'Internal server error' });
   }
 });

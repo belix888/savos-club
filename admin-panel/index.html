@@ -365,6 +365,7 @@
             <div class="nav-tab" data-tab="orders">📋 Заказы</div>
             <div class="nav-tab" data-tab="contests">🏆 Конкурсы</div>
             <div class="nav-tab" data-tab="waiters">🍽️ Официанты</div>
+            <div class="nav-tab" data-tab="chips-logs">🎰 Логи фишек</div>
             <div class="nav-tab" data-tab="super-admin">🔐 Супер-админ</div>
         </div>
 
@@ -523,6 +524,30 @@
                 </div>
             </div>
 
+            <div id="chips-logs" class="tab-content">
+                <div class="card">
+                    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:15px;gap:10px;flex-wrap:wrap;">
+                        <h3 style="margin:0;">🎰 Логи начислений фишек</h3>
+                        <button class="btn btn-secondary" onclick="loadChipsLogs()">🔃 Обновить</button>
+                    </div>
+                    <div id="chips-logs-list">
+                        <div class="loading">Загрузка логов...</div>
+                    </div>
+                </div>
+                
+                <!-- Интерфейс для бармена для начисления фишек -->
+                <div class="card" style="margin-top: 20px;">
+                    <h3 style="margin-bottom: 15px;">➕ Начислить фишки (только для старшего бармена)</h3>
+                    <form id="add-chips-form" style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 10px;">
+                        <input type="number" id="add-chips-user-id" placeholder="ID пользователя в системе" required min="1">
+                        <input type="number" id="add-chips-amount" placeholder="Количество фишек" required step="0.01" min="0.01">
+                        <input type="text" id="add-chips-reason" placeholder="Причина (необязательно)">
+                        <button type="submit" class="btn">✅ Начислить фишки</button>
+                    </form>
+                    <div id="add-chips-status" style="margin-top: 10px;"></div>
+                </div>
+            </div>
+
             <div id="super-admin" class="tab-content">
                 <!-- Управление доступами к разделам -->
                 <div class="card">
@@ -659,6 +684,16 @@
                         <option value="Active">Активен</option>
                         <option value="Banned">Заблокирован</option>
                     </select>
+                </div>
+                <div class="form-group">
+                    <label>Количество фишек</label>
+                    <input type="number" id="edit-user-chips" step="0.01" min="0" placeholder="0">
+                </div>
+                <div class="form-group">
+                    <label style="display: flex; align-items: center; gap: 10px;">
+                        <input type="checkbox" id="edit-user-is-bartender" style="width: auto;">
+                        Старший бармен (может начислять фишки)
+                    </label>
                 </div>
                 <button type="submit" class="btn">💾 Сохранить изменения</button>
             </form>
@@ -1241,6 +1276,112 @@
         async function startShift(id){ const r = await fetch(`/api/waiters/${id}/start-shift`, { method:'POST' }); if (r.ok) loadWaiters(); }
         async function endShift(id){ const r = await fetch(`/api/waiters/${id}/end-shift`, { method:'POST' }); if (r.ok) loadWaiters(); }
 
+        // Логи фишек
+        async function loadChipsLogs() {
+            try {
+                const token = localStorage.getItem('adminToken');
+                if (!token) {
+                    showToast('error', 'Ошибка', 'Необходима авторизация');
+                    return;
+                }
+                
+                const r = await fetch('/api/chips/logs', {
+                    headers: { 'Authorization': `Bearer ${token}` }
+                });
+                
+                if (!r.ok) {
+                    const err = await r.json().catch(() => ({ error: 'Ошибка загрузки' }));
+                    showToast('error', 'Ошибка', err.error || 'Не удалось загрузить логи');
+                    document.getElementById('chips-logs-list').innerHTML = '<div class="error">Ошибка загрузки логов</div>';
+                    return;
+                }
+                
+                const data = await r.json();
+                const logs = data.logs || [];
+                const container = document.getElementById('chips-logs-list');
+                
+                if (logs.length === 0) {
+                    container.innerHTML = '<p style="text-align:center;color:rgba(255,255,255,0.7);">Нет записей в логах</p>';
+                    return;
+                }
+                
+                container.innerHTML = `
+                    <table style="width: 100%; border-collapse: collapse;">
+                        <thead>
+                            <tr style="background: rgba(255,255,255,0.1);">
+                                <th style="padding: 10px; text-align: left;">Дата</th>
+                                <th style="padding: 10px; text-align: left;">Пользователь</th>
+                                <th style="padding: 10px; text-align: left;">Количество</th>
+                                <th style="padding: 10px; text-align: left;">Бармен</th>
+                                <th style="padding: 10px; text-align: left;">Причина</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            ${logs.map(log => `
+                                <tr style="border-bottom: 1px solid rgba(255,255,255,0.1);">
+                                    <td style="padding: 10px; color: rgba(255,255,255,0.8);">${new Date(log.created_at).toLocaleString('ru-RU')}</td>
+                                    <td style="padding: 10px; color: #60a5fa;">${log.user.full_name || `ID: ${log.user.id}`}</td>
+                                    <td style="padding: 10px; color: #22c55e; font-weight: 600;">+${log.amount} фиш.</td>
+                                    <td style="padding: 10px; color: rgba(255,255,255,0.8);">${log.bartender.full_name || `ID: ${log.bartender.id}`}</td>
+                                    <td style="padding: 10px; color: rgba(255,255,255,0.7);">${log.reason || '-'}</td>
+                                </tr>
+                            `).join('')}
+                        </tbody>
+                    </table>
+                `;
+            } catch (e) {
+                console.error('Ошибка загрузки логов фишек:', e);
+                document.getElementById('chips-logs-list').innerHTML = '<div class="error">Ошибка загрузки логов</div>';
+            }
+        }
+
+        // Обработчик формы начисления фишек
+        document.getElementById('add-chips-form')?.addEventListener('submit', async (e) => {
+            e.preventDefault();
+            const userId = parseInt(document.getElementById('add-chips-user-id').value);
+            const amount = parseFloat(document.getElementById('add-chips-amount').value);
+            const reason = document.getElementById('add-chips-reason').value.trim() || null;
+            const statusDiv = document.getElementById('add-chips-status');
+            
+            if (!userId || !amount || amount <= 0) {
+                statusDiv.innerHTML = '<div style="color: #ef4444;">Неверные данные</div>';
+                return;
+            }
+            
+            const token = localStorage.getItem('adminToken');
+            if (!token) {
+                statusDiv.innerHTML = '<div style="color: #ef4444;">Необходима авторизация</div>';
+                return;
+            }
+            
+            try {
+                statusDiv.innerHTML = '<div style="color: rgba(255,255,255,0.8);">Отправка запроса...</div>';
+                
+                const res = await fetch('/api/chips/add', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Authorization': `Bearer ${token}`
+                    },
+                    body: JSON.stringify({ user_id: userId, amount, reason })
+                });
+                
+                const data = await res.json();
+                
+                if (res.ok) {
+                    statusDiv.innerHTML = `<div style="color: #22c55e;">✅ ${data.message}. Новый баланс: ${data.new_balance} фишек</div>`;
+                    e.target.reset();
+                    // Обновляем логи через секунду
+                    setTimeout(() => loadChipsLogs(), 1000);
+                } else {
+                    statusDiv.innerHTML = `<div style="color: #ef4444;">❌ Ошибка: ${data.error || 'Неизвестная ошибка'}</div>`;
+                }
+            } catch (err) {
+                console.error('Ошибка начисления фишек:', err);
+                statusDiv.innerHTML = '<div style="color: #ef4444;">❌ Ошибка сети</div>';
+            }
+        });
+
         // Загрузка пользователей в супер-админке
         async function loadSuperUsers() {
             const container = document.getElementById('super-users-list');
@@ -1350,6 +1491,8 @@
                     
                     document.getElementById('edit-user-role').value = fullUser.is_admin ? 'Admin' : (fullUser.is_resident ? 'Resident' : (fullUser.is_waiter ? 'Waiter' : 'User'));
                     document.getElementById('edit-user-status').value = user.status || 'Active';
+                    document.getElementById('edit-user-chips').value = fullUser.chips || 0;
+                    document.getElementById('edit-user-is-bartender').checked = fullUser.is_bartender || false;
                 } else {
                     // Используем данные из памяти
                     document.getElementById('edit-user-id').value = user.id;
@@ -1360,6 +1503,8 @@
                     document.getElementById('edit-user-photo-url').value = 'данные не доступны';
                     document.getElementById('edit-user-role').value = user.role;
                     document.getElementById('edit-user-status').value = user.status;
+                    document.getElementById('edit-user-chips').value = 0;
+                    document.getElementById('edit-user-is-bartender').checked = false;
                     document.getElementById('edit-user-photo-preview').innerHTML = '<span style="color: rgba(255,255,255,0.5);">Фото не доступно</span>';
                 }
             } catch (error) {
@@ -1415,11 +1560,45 @@
                     const userName = document.getElementById('edit-user-name').value;
                     const userRole = document.getElementById('edit-user-role').value;
                     const userStatus = document.getElementById('edit-user-status').value;
+                    const userChips = parseFloat(document.getElementById('edit-user-chips').value) || 0;
+                    const isBartender = document.getElementById('edit-user-is-bartender').checked;
+                    
+                    // Разбиваем имя на имя и фамилию
+                    const nameParts = userName.trim().split(' ');
+                    const firstName = nameParts[0] || '';
+                    const lastName = nameParts.slice(1).join(' ') || '';
+                    
+                    const updateData = {
+                        first_name: firstName,
+                        last_name: lastName,
+                        chips: userChips,
+                        is_bartender: isBartender
+                    };
+                    
+                    // Обновляем роли в зависимости от выбранной роли
+                    if (userRole === 'Admin') {
+                        updateData.is_admin = true;
+                        updateData.is_resident = false;
+                        updateData.is_waiter = false;
+                    } else if (userRole === 'Resident') {
+                        updateData.is_admin = false;
+                        updateData.is_resident = true;
+                        updateData.is_waiter = false;
+                    } else if (userRole === 'Waiter') {
+                        updateData.is_admin = false;
+                        updateData.is_resident = false;
+                        updateData.is_waiter = true;
+                    } else {
+                        updateData.is_admin = false;
+                        updateData.is_resident = false;
+                        updateData.is_waiter = false;
+                    }
+                    
                     try {
                         const res = await fetch(`/api/users/${userId}`, {
                             method: 'PUT',
                             headers: { 'Content-Type': 'application/json' },
-                            body: JSON.stringify({ name: userName, role: userRole, status: userStatus })
+                            body: JSON.stringify(updateData)
                         });
                         if (res.ok) {
                             showToast('success', 'Изменения сохранены', `${userName} обновлен`);
