@@ -14,7 +14,6 @@ from typing import Dict, Any, Optional
 
 from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup, WebAppInfo, ReplyKeyboardMarkup, KeyboardButton
 from telegram.ext import Application, CommandHandler, ContextTypes, MessageHandler, filters
-from telegram.request import HTTPXRequest
 from dotenv import load_dotenv
 
 # Загрузка переменных окружения
@@ -232,23 +231,16 @@ class SavosBotWorking:
         connection_result = self.website.check_connection()
         logger.info(f"🌐 Статус сайта: {connection_result.get('status')}")
         
-        # Отключаем использование системных прокси у httpx клиента Telegram
-        httpx_request = HTTPXRequest(
-            read_timeout=20,
-            write_timeout=20,
-            connect_timeout=20,
-            pool_timeout=20,
-            http_version="1.1",
-            trust_env=False,   # критично: не брать HTTP(S)_PROXY из окружения
-            proxies=None
-        )
-        self.application = (
-            Application
-            .builder()
-            .token(self.bot_token)
-            .request(httpx_request)
-            .build()
-        )
+        # Жестко отключаем прокси через переменные окружения для клиента Telegram
+        for var in [
+            'HTTP_PROXY','http_proxy','HTTPS_PROXY','https_proxy',
+            'ALL_PROXY','all_proxy'
+        ]:
+            if os.environ.get(var):
+                os.environ.pop(var, None)
+        os.environ['NO_PROXY'] = '*'
+        # Создаём приложение Telegram (без прокси)
+        self.application = Application.builder().token(self.bot_token).build()
         
         # Регистрация обработчиков
         self.application.add_handler(CommandHandler("start", self.start))
