@@ -559,6 +559,68 @@
     </div>
 
     <script>
+        // Модалка карточки мероприятия
+        const eventModalHtml = `
+            <div id="event-modal" style="display:none; position: fixed; inset: 0; background: rgba(0,0,0,.6); z-index: 9998; align-items:center; justify-content:center;">
+                <div id="event-modal-card" style="width: 92%; max-width: 520px; background: #2a262b; border-radius: 16px; box-shadow: 0 20px 60px rgba(0,0,0,.5); overflow: hidden;">
+                    <div style="padding: 16px 16px 0 16px; display:flex; justify-content: space-between; align-items:center;">
+                        <h3 id="ev-title" style="margin:0; color:#ef4444;">Мероприятие</h3>
+                        <button onclick="closeEventModal()" style="background: transparent; border:none; color:#fff; font-size:20px; cursor:pointer;">✖</button>
+                    </div>
+                    <div id="ev-image-box" style="margin: 12px 16px 0 16px; display:none;">
+                        <img id="ev-image" alt="poster" style="width:100%; border-radius:12px;" />
+                    </div>
+                    <div style="padding: 12px 16px 16px 16px;">
+                        <div id="ev-date" style="color:rgba(255,255,255,.8); margin-bottom:8px;"></div>
+                        <div id="ev-desc" style="color:rgba(255,255,255,.85); margin-bottom:12px;"></div>
+                        <div id="ev-price" style="font-weight:700; color:#ef4444; margin-bottom:16px;"></div>
+                        <div id="ev-ticket" style="margin-bottom:16px;"></div>
+                        <button id="ev-book-btn" class="btn" style="width:100%;">✨ Забронировать место</button>
+                    </div>
+                </div>
+            </div>`;
+        if (!document.getElementById('event-modal')) {
+            const wrap = document.createElement('div');
+            wrap.innerHTML = eventModalHtml;
+            document.body.appendChild(wrap.firstChild);
+        }
+
+        async function openEventModal(eventId){
+            try {
+                const r = await fetch(`/api/events/${eventId}`);
+                if (!r.ok) throw new Error('Не удалось загрузить мероприятие');
+                const ev = await r.json();
+                document.getElementById('ev-title').textContent = ev.title || 'Мероприятие';
+                const dt = ev.date ? new Date(ev.date).toLocaleString('ru-RU') : '';
+                document.getElementById('ev-date').innerHTML = dt ? `📅 ${dt}` : '';
+                const desc = ev.description || '';
+                document.getElementById('ev-desc').textContent = desc;
+                const priceBox = document.getElementById('ev-price');
+                priceBox.textContent = ev.price && ev.price > 0 ? `${ev.price} ₽` : 'Бесплатно';
+                const ticketBox = document.getElementById('ev-ticket');
+                if (ev.ticket_url) {
+                    ticketBox.innerHTML = `<a href="${ev.ticket_url}" target="_blank" style="color:#60a5fa; text-decoration:none;">🎟 Купить билет</a>`;
+                } else {
+                    ticketBox.innerHTML = '';
+                }
+                const imgBox = document.getElementById('ev-image-box');
+                const img = document.getElementById('ev-image');
+                if (ev.image_url) {
+                    img.src = ev.image_url;
+                    imgBox.style.display = 'block';
+                } else {
+                    img.src = '';
+                    imgBox.style.display = 'none';
+                }
+                const bookBtn = document.getElementById('ev-book-btn');
+                bookBtn.onclick = () => bookEvent(ev.id, ev.title || 'Событие', Number(ev.price||0));
+                document.getElementById('event-modal').style.display = 'flex';
+            } catch (e) {
+                tg.showAlert('Ошибка открытия карточки');
+            }
+        }
+        function closeEventModal(){ const m = document.getElementById('event-modal'); if (m) m.style.display = 'none'; }
+
         // Telegram WebApp API
         const tg = window.Telegram.WebApp;
         tg.ready();
@@ -735,7 +797,7 @@
                 }
 
                 eventsList.innerHTML = events.map(event => `
-                    <div class="card" style="margin-bottom: 15px;">
+                    <div class="card" style="margin-bottom: 15px; cursor:pointer;" onclick="openEventModal(${event.id})">
                         <h4 style="color: #ef4444; margin-bottom: 10px;">${event.title}</h4>
                         <p style="margin-bottom: 10px; color: rgba(255,255,255,0.8);">${event.description || ''}</p>
                         <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px;">
@@ -744,9 +806,6 @@
                             </span>
                             ${event.price > 0 ? `<span style="font-weight: 600; color: #ef4444;">${event.price} ₽</span>` : '<span style="color: #22c55e;">Бесплатно</span>'}
                         </div>
-                        <button class="btn" onclick="bookEvent(${event.id}, '${event.title}', ${event.price||0})" style="width: 100%;">
-                            ✨ Забронировать место
-                        </button>
                     </div>
                 `).join('');
             } catch (error) {
