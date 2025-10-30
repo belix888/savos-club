@@ -259,49 +259,79 @@ app.post('/api/register', (req, res) => {
 // Public login endpoint (username + phone) – independent from Telegram
 app.post('/api/login', (req, res) => {
   try {
-    const { username, phone } = req.body;
-    if (!username || !phone) {
-      return res.status(400).json({ error: 'Username и телефон обязательны' });
-    }
-    const phoneRegex = /^\+?7\d{10}$/;
-    let normalizedPhone = (phone || '').replace(/[\s\-()]/g, '');
-    if (normalizedPhone.startsWith('8')) {
-      normalizedPhone = '+7' + normalizedPhone.substring(1);
-    }
-    if (!phoneRegex.test(normalizedPhone)) {
-      return res.status(400).json({ error: 'Телефон в формате +79991234567 или 89991234567' });
+    let { username, phone } = req.body || {};
+    if (!username) {
+      return res.status(400).json({ error: 'Укажите Telegram username' });
     }
 
+    // Нормализуем телефон (если передан): допускаем +7XXXXXXXXXX или 8XXXXXXXXXX
+    const normalizePhone = (p) => {
+      if (!p) return null;
+      let n = String(p).replace(/[\s\-()]/g, '');
+      if (n.startsWith('8') && n.length === 11) n = '+7' + n.substring(1);
+      if (n.startsWith('+7') && n.length === 12) return n;
+      return null;
+    };
+    const normalizedPhone = normalizePhone(phone);
+
     const db = require('../database/init');
-    db.get('SELECT * FROM users WHERE username = ? AND phone = ?', [username, normalizedPhone], (err, user) => {
+    // Username — без учета регистра
+    db.get('SELECT * FROM users WHERE LOWER(username) = LOWER(?)', [username], (err, user) => {
       if (err) {
         console.error('❌ Error during login:', err);
         return res.status(500).json({ error: 'Ошибка базы данных' });
       }
       if (!user) {
+        return res.status(401).json({ error: 'Пользователь не найден. Зарегистрируйтесь.' });
+      }
+
+      const userPhone = user.phone;
+      const ok = (() => {
+        // Если в БД есть телефон — должен совпасть (с учетом нормализации)
+        if (userPhone) {
+          const dbNorm = normalizePhone(userPhone);
+          return !!normalizedPhone && dbNorm === normalizedPhone;
+        }
+        // Если телефона в БД нет — пускаем по одному username; при наличии валидного телефона — привязываем
+        return true;
+      })();
+
+      if (!ok) {
         return res.status(401).json({ error: 'Неверные данные для входа' });
       }
 
-      const token = jwt.sign(
-        {
-          id: user.id,
-          username: user.username,
-          is_admin: !!user.is_admin,
-          is_super_admin: !!user.is_super_admin
-        },
-        process.env.JWT_SECRET || 'savosbot_club_super_secret_jwt_key_2024',
-        { expiresIn: '7d' }
-      );
-
-      res.json({
-        token,
-        user: {
-          id: user.id,
-          username: user.username,
-          first_name: user.first_name,
-          last_name: user.last_name,
-          phone: user.phone
+      const bindPhoneIfMissing = () => new Promise((resolve) => {
+        if (!userPhone && normalizedPhone) {
+          db.run('UPDATE users SET phone = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?', [normalizedPhone, user.id], function () {
+            resolve();
+          });
+        } else {
+          resolve();
         }
+      });
+
+      bindPhoneIfMissing().then(() => {
+        const token = jwt.sign(
+          {
+            id: user.id,
+            username: user.username,
+            is_admin: !!user.is_admin,
+            is_super_admin: !!user.is_super_admin
+          },
+          process.env.JWT_SECRET || 'savosbot_club_super_secret_jwt_key_2024',
+          { expiresIn: '7d' }
+        );
+
+        res.json({
+          token,
+          user: {
+            id: user.id,
+            username: user.username,
+            first_name: user.first_name,
+            last_name: user.last_name,
+            phone: normalizedPhone || user.phone || null
+          }
+        });
       });
     });
   } catch (error) {
