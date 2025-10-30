@@ -1260,21 +1260,41 @@ app.put('/api/settings', (req, res) => {
 });
 
 // Webhook endpoint
-app.post('/webhook', (req, res) => {
+app.post('/webhook', async (req, res) => {
   try {
-    const webhookData = req.body;
-    
-    console.log('📡 Webhook received:', {
-      data: webhookData,
-      timestamp: new Date().toISOString()
-    });
-    
-    res.json({ 
-      status: 'OK', 
-      message: 'Webhook received',
-      timestamp: new Date().toISOString()
-    });
-    
+    const update = req.body || {};
+    console.log('📡 Webhook received:', { timestamp: new Date().toISOString() });
+
+    // Минимальная обработка /start
+    const token = process.env.TELEGRAM_BOT_TOKEN || process.env.BOT_TOKEN || process.env.TG_BOT_TOKEN;
+    if (token && update.message && update.message.text) {
+      const text = String(update.message.text || '').trim();
+      const chatId = update.message.chat && update.message.chat.id;
+      if (text === '/start' && chatId) {
+        const replyMarkup = {
+          inline_keyboard: [[{
+            text: '📱 Открыть мини‑приложение',
+            web_app: { url: `${process.env.WEBSITE_URL || 'https://savos-club-two.vercel.app'}/mini-app` }
+          }]]
+        };
+        try {
+          await fetch(`https://api.telegram.org/bot${token}/sendMessage`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              chat_id: chatId,
+              text: '👋 Добро пожаловать в SavosBot Club!'
+                + '\n\nНажмите кнопку ниже, чтобы открыть мини‑приложение.',
+              reply_markup: replyMarkup
+            })
+          });
+        } catch (e) {
+          console.error('❌ Error sending Telegram message:', e);
+        }
+      }
+    }
+
+    res.json({ status: 'OK' });
   } catch (error) {
     console.error('❌ Webhook error:', error);
     res.status(500).json({ error: 'Webhook processing failed' });
