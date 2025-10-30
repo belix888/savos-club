@@ -639,9 +639,24 @@
             const regError = document.getElementById('registrationError');
 
             if (loginToggleBtn && loginForm) {
+                let loginMode = false;
+                const regFormBox = document.getElementById('registrationForm');
+                const switchTo = (modeLogin) => {
+                    loginMode = modeLogin;
+                    if (loginMode) {
+                        if (regFormBox) regFormBox.style.display = 'none';
+                        loginForm.style.display = 'block';
+                        loginToggleBtn.textContent = '← Назад к регистрации';
+                    } else {
+                        if (regFormBox) regFormBox.style.display = 'block';
+                        loginForm.style.display = 'none';
+                        loginToggleBtn.textContent = '🔐 Войти';
+                    }
+                };
+                // по нажатию "Войти" скрываем регистрацию и показываем форму входа
                 loginToggleBtn.addEventListener('click', (e) => {
                     e.preventDefault();
-                    loginForm.style.display = loginForm.style.display === 'none' ? 'block' : 'none';
+                    switchTo(!loginMode);
                 });
             }
 
