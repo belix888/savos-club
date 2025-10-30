@@ -1568,23 +1568,52 @@ app.post('/api/orders', (req, res) => {
       const drinkPrices = {};
       drinks.forEach(d => { drinkPrices[d.id] = d.price; });
       
-      // Считаем общую сумму
+      // Считаем общую сумму в фишках
       let totalAmount = 0;
       items.forEach(item => {
         const price = drinkPrices[item.drink_id] || 0;
         totalAmount += price * item.quantity;
       });
       
-      // Генерируем код подтверждения
-      const confirmationCode = Math.floor(1000 + Math.random() * 9000).toString();
-      
-      // Создаем заказ
-      db.run(
-        'INSERT INTO orders (user_id, total_amount, status, confirmation_code) VALUES (?, ?, ?, ?)',
-        [userId, totalAmount, 'new', confirmationCode],
-        function(orderErr) {
-          if (orderErr) return res.status(500).json({ error: 'Database error' });
-          const orderId = this.lastID;
+      // Проверяем баланс фишек пользователя
+      db.get('SELECT chips FROM users WHERE id = ?', [userId], (err, user) => {
+        if (err) return res.status(500).json({ error: 'Database error' });
+        if (!user) return res.status(404).json({ error: 'User not found' });
+        
+        const userChips = parseFloat(user.chips || 0);
+        if (userChips < totalAmount) {
+          return res.status(400).json({ 
+            error: `Недостаточно фишек. У вас: ${userChips.toFixed(2)} фиш., требуется: ${totalAmount.toFixed(2)} фиш.` 
+          });
+        }
+        
+        // Генерируем код подтверждения
+        const confirmationCode = Math.floor(1000 + Math.random() * 9000).toString();
+        
+        // Списываем фишки с баланса пользователя
+        const newBalance = userChips - totalAmount;
+        db.run(
+          'UPDATE users SET chips = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?',
+          [newBalance, userId],
+          function(chipsErr) {
+            if (chipsErr) {
+              console.error('❌ Error deducting chips:', chipsErr);
+              return res.status(500).json({ error: 'Database error' });
+            }
+            
+            console.log(`✅ Chips deducted: ${totalAmount} from user ${userId}, new balance: ${newBalance}`);
+            
+            // Создаем заказ
+            db.run(
+              'INSERT INTO orders (user_id, total_amount, status, confirmation_code) VALUES (?, ?, ?, ?)',
+              [userId, totalAmount, 'new', confirmationCode],
+              function(orderErr) {
+                if (orderErr) {
+                  // Если заказ не создан, возвращаем фишки
+                  db.run('UPDATE users SET chips = ? WHERE id = ?', [userChips, userId]);
+                  return res.status(500).json({ error: 'Database error' });
+                }
+                const orderId = this.lastID;
           
           // Добавляем позиции заказа
           const insertItem = (index) => {
@@ -1594,6 +1623,7 @@ app.post('/api/orders', (req, res) => {
                 total_amount: totalAmount,
                 status: 'new',
                 confirmation_code: confirmationCode,
+                new_balance: newBalance,
                 items: items.map(item => ({
                   drink_id: item.drink_id,
                   quantity: item.quantity,
@@ -1615,8 +1645,11 @@ app.post('/api/orders', (req, res) => {
           };
           
           insertItem(0);
-        }
-      );
+              }
+            );
+          }
+        );
+      });
     });
   } catch (error) {
     console.error('❌ Error creating order:', error);

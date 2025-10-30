@@ -1141,7 +1141,7 @@
                 if (!drinks || drinks.length === 0) { list.innerHTML = '<p style="text-align:center;color:rgba(255,255,255,0.7);">Нет напитков</p>'; return; }
                 list.innerHTML = drinks.map(drink => `
                     <div class=\"drink-item\">
-                        <div class=\"drink-info\">\n                            <h4>${drink.name}</h4>\n                            <p style=\"color: rgba(255,255,255,0.7); font-size: 14px;\">${drink.description || ''}</p>\n                        </div>\n                        <div style=\"display:flex; align-items:center; gap:15px;\">\n                            <span class=\"drink-price\">${drink.price} ${(drink.category && drink.category.toLowerCase().includes('коктейл')) ? 'фиш.' : '₽'}</span>\n                            <button class=\"btn btn-secondary\" onclick=\"toggleDrink(${drink.id})\">${drink.is_available ? 'Скрыть' : 'Вернуть'}</button>\n                        </div>\n                    </div>
+                        <div class=\"drink-info\">\n                            <h4>${drink.name}</h4>\n                            <p style=\"color: rgba(255,255,255,0.7); font-size: 14px;\">${drink.description || ''}</p>\n                        </div>\n                        <div style=\"display:flex; align-items:center; gap:15px;\">\n                            <span class=\"drink-price\">${drink.price} фиш.</span>\n                            <button class=\"btn btn-secondary\" onclick=\"toggleDrink(${drink.id})\">${drink.is_available ? 'Скрыть' : 'Вернуть'}</button>\n                        </div>\n                    </div>
                 `).join('');
             } catch (error) {
                 console.error('Ошибка загрузки напитков:', error);
@@ -1169,7 +1169,7 @@
             if (!cat || !price) return;
             const update = () => {
                 const isCocktail = (cat.value || '').toLowerCase().includes('коктейл');
-                price.placeholder = isCocktail ? 'Цена, фиш.' : 'Цена, ₽';
+                price.placeholder = 'Цена, фиш.';
             };
             cat.addEventListener('input', update);
             update();
@@ -1194,14 +1194,14 @@
                               <div style=\"display:flex;justify-content:space-between;gap:10px;margin:5px 0;\">
                                 <span style=\"color:rgba(255,255,255,0.9);\">Товар #${it.drink_id}</span>
                                 <span style=\"color:rgba(255,255,255,0.7);\">×${it.quantity}</span>
-                                <span style=\"font-weight:600;color:#ef4444;\">${it.price} ₽</span>
+                                <span style=\"font-weight:600;color:#ef4444;\">${it.price} фиш.</span>
                               </div>
                             `).join('')}
                           </div>
                         ` : '<div style=\"margin-bottom:10px;color:rgba(255,255,255,0.7);\">Нет позиций</div>'}
                         <div style=\"display:flex;justify-content:space-between;align-items:center;\">
                             <span style=\"color: rgba(255,255,255,0.7);\">📅 ${new Date(order.created_at).toLocaleString('ru-RU')}</span>
-                            <span style=\"font-weight:600;color:#ef4444;\">${order.total_amount} ₽</span>
+                            <span style=\"font-weight:600;color:#ef4444;\">${order.total_amount} фиш.</span>
                         </div>
                         ${order.confirmation_code ? `<div style=\"margin-top:10px;padding:10px;background:rgba(34,197,94,0.2);border-radius:8px;\"><strong>Код подтверждения:</strong> ${order.confirmation_code}</div>` : ''}
                     </div>

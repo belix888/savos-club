@@ -998,7 +998,7 @@
                             <p style="color: rgba(255,255,255,0.7); font-size: 14px;">${drink.description || ''}</p>
                         </div>
                         <div style="display: flex; align-items: center; gap: 15px;">
-                            <span class="drink-price">${drink.price} ${(drink.category && drink.category.toLowerCase().includes('коктейл')) ? 'фиш.' : '₽'}</span>
+                            <span class="drink-price">${drink.price} фиш.</span>
                             <div class="quantity-controls">
                                 <button class="quantity-btn" onclick="updateQuantity(${drink.id}, -1)" ${cart[drink.id] ? '' : 'disabled'}>-</button>
                                 <span class="quantity">${cart[drink.id] || 0}</span>
@@ -1050,23 +1050,14 @@
                 // Получаем цены напитков
                 const response = await fetch('/api/drinks');
                 const drinks = await response.json();
-                // Разделяем итог на фишки (коктейли) и рубли (остальное)
-                let rubTotal = 0;
+                // Считаем общую сумму в фишках
                 let chipsTotal = 0;
                 for (const [drinkId, quantity] of Object.entries(cart)) {
                     const drink = drinks.find(d => d.id == drinkId);
                     if (!drink) continue;
-                    const isCocktail = (drink.category || '').toLowerCase().includes('коктейл');
-                    if (isCocktail) {
-                        chipsTotal += (drink.price || 0) * quantity;
-                    } else {
-                        rubTotal += (drink.price || 0) * quantity;
-                    }
+                    chipsTotal += (drink.price || 0) * quantity;
                 }
-                const parts = [];
-                if (chipsTotal > 0) parts.push(`${chipsTotal} фиш.`);
-                if (rubTotal > 0) parts.push(`${rubTotal} ₽`);
-                totalAmount.textContent = parts.join(' + ');
+                totalAmount.textContent = `${chipsTotal} фиш.`;
             }
         }
 
@@ -1074,11 +1065,50 @@
         async function placeOrder() {
             try {
                 if (!ensureAuthOrShowLogin()) return;
-                const items = Object.entries(cart).map(([drinkId, quantity]) => ({
-                    drink_id: parseInt(drinkId),
-                    quantity: quantity
-                }));
-
+                
+                // Проверяем баланс фишек перед оформлением
+                if (!currentUser || currentUser.chips === undefined) {
+                    // Обновляем данные пользователя
+                    try {
+                        const sessionRes = await fetch('/api/session', {
+                            headers: { 'Authorization': `Bearer ${authToken}` }
+                        });
+                        if (sessionRes.ok) {
+                            const sessionData = await sessionRes.json();
+                            currentUser = sessionData.user;
+                        }
+                    } catch (e) {
+                        console.error('Ошибка обновления данных пользователя:', e);
+                    }
+                }
+                
+                // Подсчитываем сумму заказа
+                const drinksRes = await fetch('/api/drinks');
+                const drinks = await drinksRes.ok ? await drinksRes.json() : [];
+                let totalAmount = 0;
+                const items = Object.entries(cart).map(([drinkId, quantity]) => {
+                    const drink = drinks.find(d => d.id == drinkId);
+                    if (drink) {
+                        totalAmount += (drink.price || 0) * quantity;
+                    }
+                    return {
+                        drink_id: parseInt(drinkId),
+                        quantity: quantity
+                    };
+                });
+                
+                // Проверяем баланс
+                const userChips = parseFloat(currentUser?.chips || 0);
+                if (userChips < totalAmount) {
+                    const errorMsg = `Недостаточно фишек!\n\nУ вас: ${userChips.toFixed(2)} фиш.\nТребуется: ${totalAmount.toFixed(2)} фиш.\nНе хватает: ${(totalAmount - userChips).toFixed(2)} фиш.`;
+                    if (tg && tg.showAlert) {
+                        tg.showAlert(errorMsg);
+                    } else {
+                        alert(errorMsg);
+                    }
+                    return;
+                }
+                
                 const order = {
                     id: Date.now(),
                     items: items,
@@ -1096,6 +1126,14 @@
                 });
 
                 if (response.ok) {
+                    const orderData = await response.json();
+                    
+                    // Обновляем баланс фишек пользователя
+                    if (orderData.new_balance !== undefined && currentUser) {
+                        currentUser.chips = orderData.new_balance;
+                        console.log('✅ Баланс фишек обновлен:', orderData.new_balance);
+                    }
+                    
                     // Добавляем заказ в историю
                     userActions.orders.push(order);
                     saveUserActions();
@@ -1106,11 +1144,22 @@
                     loadOrders();
                     loadProfile();
                     
-                    // Показываем уведомление
-                    tg.showAlert('Заказ успешно оформлен! Официант скоро подойдет к вашему столику.');
+                    // Показываем уведомление с информацией о списанных фишках
+                    const message = `✅ Заказ успешно оформлен!\n\nСписано: ${orderData.total_amount} фиш.\n${orderData.new_balance !== undefined ? `Остаток: ${orderData.new_balance.toFixed(2)} фиш.` : ''}\n\nОфициант скоро подойдет к вашему столику.\nКод подтверждения: ${orderData.confirmation_code}`;
+                    if (tg && tg.showAlert) {
+                        tg.showAlert(message);
+                    } else {
+                        alert(message);
+                    }
                 } else {
                     const error = await response.json();
-                    showError(error.error || 'Ошибка оформления заказа');
+                    console.error('❌ Ошибка оформления заказа:', error);
+                    const errorMsg = error.error || 'Ошибка оформления заказа';
+                    if (tg && tg.showAlert) {
+                        tg.showAlert(errorMsg);
+                    } else {
+                        alert(errorMsg);
+                    }
                 }
             } catch (error) {
                 console.error('Ошибка оформления заказа:', error);
@@ -1406,14 +1455,14 @@
                         </div>
                         <div style="margin-bottom: 10px; color: rgba(255,255,255,0.9); padding: 10px; background: rgba(255,255,255,0.03); border-radius: 8px;">
                             ${(order.items||[]).length > 0 ? 
-                                (order.items||[]).map(i => `<div style="margin-bottom: 5px;">${i.quantity} × ${i.drink_name || 'Напиток #' + i.drink_id} — ${i.price * i.quantity} ₽</div>`).join('') :
+                                (order.items||[]).map(i => `<div style="margin-bottom: 5px;">${i.quantity} × ${i.drink_name || 'Напиток #' + i.drink_id} — ${i.price * i.quantity} фиш.</div>`).join('') :
                                 '<div>Нет позиций</div>'}
                         </div>
                         <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px;">
                             <span style="color: rgba(255,255,255,0.7); font-size: 14px;">
                                 📅 ${new Date(order.created_at).toLocaleString('ru-RU')}
                             </span>
-                            <span style="font-weight: 700; color: #ef4444; font-size: 18px;">${order.total_amount} ₽</span>
+                            <span style="font-weight: 700; color: #ef4444; font-size: 18px;">${order.total_amount} фиш.</span>
                         </div>
                         ${order.confirmation_code ? `
                             <div style="margin-top: 10px; padding: 12px; background: rgba(34, 197, 94, 0.2); border: 1px solid rgba(34, 197, 94, 0.5); border-radius: 8px;">
