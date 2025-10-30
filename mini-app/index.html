@@ -731,16 +731,23 @@
                 // Получаем цены напитков
                 const response = await fetch('/api/drinks');
                 const drinks = await response.json();
-                
-                let total = 0;
+                // Разделяем итог на фишки (коктейли) и рубли (остальное)
+                let rubTotal = 0;
+                let chipsTotal = 0;
                 for (const [drinkId, quantity] of Object.entries(cart)) {
                     const drink = drinks.find(d => d.id == drinkId);
-                    if (drink) {
-                        total += drink.price * quantity;
+                    if (!drink) continue;
+                    const isCocktail = (drink.category || '').toLowerCase().includes('коктейл');
+                    if (isCocktail) {
+                        chipsTotal += (drink.price || 0) * quantity;
+                    } else {
+                        rubTotal += (drink.price || 0) * quantity;
                     }
                 }
-                
-                totalAmount.textContent = `${total} ₽`;
+                const parts = [];
+                if (chipsTotal > 0) parts.push(`${chipsTotal} фиш.`);
+                if (rubTotal > 0) parts.push(`${rubTotal} ₽`);
+                totalAmount.textContent = parts.join(' + ');
             }
         }
 
