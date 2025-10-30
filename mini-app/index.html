@@ -344,6 +344,36 @@
             margin-top: 5px;
         }
 
+        /* Fullscreen loader */
+        #app-loader {
+            position: fixed;
+            inset: 0;
+            background: #1f1f23;
+            display: none;
+            align-items: center;
+            justify-content: center;
+            z-index: 9999;
+        }
+        .loader-box {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 16px;
+            background: rgba(255,255,255,0.04);
+            padding: 24px 28px;
+            border-radius: 16px;
+            box-shadow: 0 8px 30px rgba(0,0,0,0.35);
+        }
+        .spinner {
+            width: 44px;
+            height: 44px;
+            border: 4px solid rgba(255,255,255,0.15);
+            border-top-color: #ef4444;
+            border-radius: 50%;
+            animation: spin 0.9s linear infinite;
+        }
+        @keyframes spin { to { transform: rotate(360deg); } }
+
         @media (max-width: 480px) {
             .container {
                 padding: 15px;
@@ -361,6 +391,12 @@
     </style>
 </head>
 <body>
+    <div id="app-loader">
+        <div class="loader-box">
+            <div class="spinner"></div>
+            <div style="color:#fff; opacity:.9; font-weight:600;">Загрузка SavosBot Club…</div>
+        </div>
+    </div>
     <div class="container">
         <!-- Registration form (shown if user not registered) -->
         <div class="registration-container" id="registrationContainer">
@@ -613,6 +649,7 @@
                 regForm.addEventListener('submit', async (e) => {
                     e.preventDefault();
                     regError.style.display = 'none';
+                    showLoader();
                     const payload = {
                         username: document.getElementById('regUsername').value.trim(),
                         first_name: document.getElementById('regFirstName').value.trim(),
@@ -629,9 +666,11 @@
                         if (!lr.ok) throw new Error(ld.error || 'Ошибка входа');
                         authToken = ld.token; currentUser = ld.user; localStorage.setItem('miniapp_token', authToken);
                         showMainApp(); await Promise.all([loadEvents(), loadDrinks(), loadContests(), loadProfile(), loadOrders()]);
+                        hideLoader();
                     } catch (err) {
                         regError.textContent = err.message;
                         regError.style.display = 'block';
+                        hideLoader();
                     }
                 });
             }
@@ -640,6 +679,7 @@
                 loginForm.addEventListener('submit', async (e) => {
                     e.preventDefault();
                     regError.style.display = 'none';
+                    showLoader();
                     try {
                         const payload = {
                             username: document.getElementById('loginUsername').value.trim(),
@@ -650,9 +690,11 @@
                         if (!r.ok) throw new Error(d.error || 'Ошибка входа');
                         authToken = d.token; currentUser = d.user; localStorage.setItem('miniapp_token', authToken);
                         showMainApp(); await Promise.all([loadEvents(), loadDrinks(), loadContests(), loadProfile(), loadOrders()]);
+                        hideLoader();
                     } catch (err) {
                         regError.textContent = err.message;
                         regError.style.display = 'block';
+                        hideLoader();
                     }
                 });
             }
@@ -662,6 +704,9 @@
             document.getElementById('registrationContainer').style.display = 'none';
             document.getElementById('mainApp').style.display = 'block';
         }
+
+        function showLoader(){ const l = document.getElementById('app-loader'); if (l) l.style.display = 'flex'; }
+        function hideLoader(){ const l = document.getElementById('app-loader'); if (l) l.style.display = 'none'; }
 
         // Загрузка мероприятий
         async function loadEvents() {
