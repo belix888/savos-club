@@ -1385,35 +1385,67 @@
         // Загрузка пользователей в супер-админке
         async function loadSuperUsers() {
             const container = document.getElementById('super-users-list');
+            if (!container) {
+                console.error('Контейнер super-users-list не найден');
+                return;
+            }
+            
+            // Показываем индикатор загрузки
+            container.innerHTML = '<div style="text-align: center; padding: 40px; color: rgba(255,255,255,0.7);">Загрузка пользователей...</div>';
             
             try {
                 // Загружаем пользователей из API
                 const response = await fetch('/api/users');
+                console.log('📡 Ответ от /api/users:', response.status);
+                
                 if (response.ok) {
                     const users = await response.json();
+                    console.log('👥 Получено пользователей:', users.length);
+                    
+                    if (!users || users.length === 0) {
+                        container.innerHTML = '<div style="text-align: center; padding: 40px; color: rgba(255,255,255,0.7);">Нет пользователей в базе данных</div>';
+                        usersData = [];
+                        return;
+                    }
                     
                     // Преобразуем данные из API в формат для отображения
-                    usersData = users.map(user => ({
-                        id: user.id,
-                        name: `${user.first_name || ''} ${user.last_name || ''}`.trim() || user.username,
-                        role: user.is_super_admin ? 'Super Admin' : 
-                              user.is_admin ? 'Admin' : 
-                              user.is_resident ? 'Resident' : 
-                              user.is_waiter ? 'Waiter' : 'User',
-                        status: 'Active', // По умолчанию активен
-                        telegram_id: user.telegram_id,
-                        username: user.username,
-                        phone: user.phone,
-                        profile_link: user.profile_link,
-                        photo_url: user.photo_url
-                    }));
+                    usersData = users.map(user => {
+                        const name = `${user.first_name || ''} ${user.last_name || ''}`.trim();
+                        return {
+                            id: user.id,
+                            name: name || user.username || `Пользователь #${user.id}`,
+                            role: user.is_super_admin ? 'Super Admin' : 
+                                  user.is_admin ? 'Admin' : 
+                                  user.is_bartender ? 'Bartender' :
+                                  user.is_resident ? 'Resident' : 
+                                  user.is_waiter ? 'Waiter' : 'User',
+                            status: 'Active', // По умолчанию активен
+                            telegram_id: user.telegram_id,
+                            username: user.username,
+                            phone: user.phone,
+                            profile_link: user.profile_link,
+                            photo_url: user.photo_url,
+                            chips: user.chips || 0,
+                            is_bartender: user.is_bartender || false,
+                            is_admin: user.is_admin || false,
+                            is_resident: user.is_resident || false,
+                            is_waiter: user.is_waiter || false
+                        };
+                    });
+                    
+                    console.log('✅ Обработано пользователей:', usersData.length);
                 } else {
-                    console.error('Ошибка загрузки пользователей:', response.status);
+                    const errorText = await response.text();
+                    console.error('❌ Ошибка загрузки пользователей:', response.status, errorText);
+                    container.innerHTML = `<div style="text-align: center; padding: 40px; color: #ef4444;">Ошибка загрузки: ${response.status}</div>`;
                     usersData = [];
+                    return;
                 }
             } catch (error) {
-                console.error('Ошибка при загрузке пользователей:', error);
+                console.error('❌ Ошибка при загрузке пользователей:', error);
+                container.innerHTML = `<div style="text-align: center; padding: 40px; color: #ef4444;">Ошибка: ${error.message}</div>`;
                 usersData = [];
+                return;
             }
             
             if (usersData.length === 0) {

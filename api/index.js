@@ -992,6 +992,8 @@ app.get('/api/users', (req, res) => {
         is_waiter: user.is_waiter || false,
         is_admin: user.is_admin || false,
         is_super_admin: user.is_super_admin || false,
+        is_bartender: user.is_bartender || false,
+        chips: parseFloat(user.chips || 0),
         created_at: user.created_at,
         updated_at: user.updated_at
       }));
