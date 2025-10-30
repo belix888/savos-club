@@ -239,6 +239,16 @@ class SavosBotWorking:
             if os.environ.get(var):
                 os.environ.pop(var, None)
         os.environ['NO_PROXY'] = '*'
+        # Форсируем IPv4, чтобы обойти проблемы с IPv6 маршрутами
+        try:
+            import socket as _socket
+            _orig_getaddrinfo = _socket.getaddrinfo
+            def _ipv4_only_getaddrinfo(host, port, family=0, type=0, proto=0, flags=0):
+                return _orig_getaddrinfo(host, port, _socket.AF_INET, type, proto, flags)
+            _socket.getaddrinfo = _ipv4_only_getaddrinfo
+            logger.info("🌐 IPv4 enforced for outgoing connections")
+        except Exception as _e:
+            logger.warning(f"⚠️ IPv4 enforce failed: {_e}")
         # Создаём приложение Telegram (без прокси)
         self.application = Application.builder().token(self.bot_token).build()
         
