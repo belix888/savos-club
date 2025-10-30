@@ -726,36 +726,10 @@
         // Загрузка мероприятий
         async function loadEvents() {
             try {
-                // Мок-данные для демонстрации
-                const events = [
-                    {
-                        id: 1,
-                        title: 'DJ Night с Resident DJ',
-                        description: 'Вечер электронной музыки с лучшими треками сезона',
-                        date: '2024-11-15T22:00:00Z',
-                        price: 800,
-                        is_active: 1
-                    },
-                    {
-                        id: 2,
-                        title: 'Wine Tasting Evening',
-                        description: 'Дегустация премиальных вин с сомелье',
-                        date: '2024-11-20T19:00:00Z',
-                        price: 1200,
-                        is_active: 1
-                    },
-                    {
-                        id: 3,
-                        title: 'Караоке-вечеринка',
-                        description: 'Пойте любимые песни в компании друзей!',
-                        date: '2024-11-25T20:00:00Z',
-                        price: 0,
-                        is_active: 1
-                    }
-                ];
-                
+                const res = await fetch('/api/events');
+                const events = await res.json();
                 const eventsList = document.getElementById('events-list');
-                if (events.length === 0) {
+                if (!events || events.length === 0) {
                     eventsList.innerHTML = '<p style="text-align: center; color: rgba(255,255,255,0.7);">Нет предстоящих мероприятий</p>';
                     return;
                 }
@@ -770,7 +744,7 @@
                             </span>
                             ${event.price > 0 ? `<span style="font-weight: 600; color: #ef4444;">${event.price} ₽</span>` : '<span style="color: #22c55e;">Бесплатно</span>'}
                         </div>
-                        <button class="btn" onclick="bookEvent(${event.id}, '${event.title}', ${event.price})" style="width: 100%;">
+                        <button class="btn" onclick="bookEvent(${event.id}, '${event.title}', ${event.price||0})" style="width: 100%;">
                             ✨ Забронировать место
                         </button>
                     </div>
@@ -794,51 +768,14 @@
         // Загрузка напитков
         async function loadDrinks() {
             try {
-                // Мок-данные для демонстрации
-                const drinks = [
-                    {
-                        id: 1,
-                        name: 'Коктейль "Савос"',
-                        description: 'Фирменный коктейль клуба',
-                        price: 450,
-                        category: 'Коктейли',
-                        is_available: 1
-                    },
-                    {
-                        id: 2,
-                        name: 'Пиво "Клубное"',
-                        description: 'Разливное пиво',
-                        price: 200,
-                        category: 'Пиво',
-                        is_available: 1
-                    },
-                    {
-                        id: 3,
-                        name: 'Вино красное',
-                        description: 'Домашнее вино',
-                        price: 350,
-                        category: 'Вино',
-                        is_available: 1
-                    },
-                    {
-                        id: 4,
-                        name: 'Водка премиум',
-                        description: 'Премиальная водка',
-                        price: 500,
-                        category: 'Крепкие напитки',
-                        is_available: 1
-                    },
-                    {
-                        id: 5,
-                        name: 'Кофе',
-                        description: 'Свежесваренный кофе',
-                        price: 150,
-                        category: 'Горячие напитки',
-                        is_available: 1
-                    }
-                ];
-                
+                const res = await fetch('/api/drinks');
+                let drinks = await res.json();
+                drinks = (drinks || []).filter(d => d.is_available);
                 const drinksList = document.getElementById('drinks-list');
+                if (!drinks || drinks.length === 0) {
+                    drinksList.innerHTML = '<p style="text-align:center;color:rgba(255,255,255,0.7);">Меню пока пусто</p>';
+                    return;
+                }
                 drinksList.innerHTML = drinks.map(drink => `
                     <div class="drink-item">
                         <div class="drink-info">
@@ -969,26 +906,10 @@
         // Загрузка конкурсов
         async function loadContests() {
             try {
-                // Мок-данные для демонстрации
-                const contests = [
-                    {
-                        id: 1,
-                        title: 'Лучший костюм месяца',
-                        description: 'Конкурс на самый оригинальный костюм',
-                        prize: 'Бесплатная бутылка шампанского',
-                        is_active: 1
-                    },
-                    {
-                        id: 2,
-                        title: 'Фотоконкурс "Моменты клуба"',
-                        description: 'Лучшие фотографии вечера в клубе',
-                        prize: 'Скидка 50% на следующий визит',
-                        is_active: 1
-                    }
-                ];
-                
+                const res = await fetch('/api/contests');
+                const contests = await res.json();
                 const contestsList = document.getElementById('contests-list');
-                if (contests.length === 0) {
+                if (!contests || contests.length === 0) {
                     contestsList.innerHTML = '<p style="text-align: center; color: rgba(255,255,255,0.7);">Нет активных конкурсов</p>';
                     return;
                 }
@@ -999,7 +920,8 @@
                         <p style="margin-bottom: 10px; color: rgba(255,255,255,0.8);">${contest.description || ''}</p>
                         <div style="margin-bottom: 15px;">
                             <span style="color: rgba(255,255,255,0.7);">
-                                📅 До ${new Date(contest.end_date).toLocaleDateString('ru-RU')}
+                                ${contest.start_date ? `📅 С ${new Date(contest.start_date).toLocaleDateString('ru-RU')}` : ''}
+                                ${contest.end_date ? ` по ${new Date(contest.end_date).toLocaleDateString('ru-RU')}` : ''}
                             </span>
                             ${contest.prize ? `<br><span style="color: #f59e0b;">🏆 Приз: ${contest.prize}</span>` : ''}
                         </div>
@@ -1200,31 +1122,10 @@
         // Загрузка заказов
         async function loadOrders() {
             try {
-                // Мок-данные для демонстрации
-                const orders = [
-                    {
-                        id: 1,
-                        total_amount: 650,
-                        status: 'completed',
-                        created_at: '2024-10-25T18:30:00Z',
-                        items: [
-                            { drink_name: 'Коктейль "Савос"', quantity: 1, price: 450 },
-                            { drink_name: 'Пиво "Клубное"', quantity: 1, price: 200 }
-                        ]
-                    },
-                    {
-                        id: 2,
-                        total_amount: 1200,
-                        status: 'new',
-                        created_at: '2024-10-25T19:15:00Z',
-                        items: [
-                            { drink_name: 'Wine Tasting Evening', quantity: 1, price: 1200 }
-                        ]
-                    }
-                ];
-                
+                const res = await fetch('/api/orders');
+                const orders = await res.json();
                 const ordersList = document.getElementById('orders-list');
-                if (orders.length === 0) {
+                if (!orders || orders.length === 0) {
                     ordersList.innerHTML = '<p style="text-align: center; color: rgba(255,255,255,0.7);">У вас пока нет заказов</p>';
                     return;
                 }
@@ -1237,7 +1138,9 @@
                               order.status === 'completed' ? 'Выполнен' : order.status}
                         </div>
                         <h4 style="margin-bottom: 10px;">Заказ #${order.id}</h4>
-                        <p style="margin-bottom: 10px; color: rgba(255,255,255,0.8);">${order.items || ''}</p>
+                        <div style="margin-bottom: 10px; color: rgba(255,255,255,0.8);">
+                            ${(order.items||[]).map(i => `${i.quantity} × ${i.drink_id || i.drink_name} — ${i.price} ₽`).join('<br>')}
+                        </div>
                         <div style="display: flex; justify-content: space-between; align-items: center;">
                             <span style="color: rgba(255,255,255,0.7);">
                                 📅 ${new Date(order.created_at).toLocaleString('ru-RU')}
