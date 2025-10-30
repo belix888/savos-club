@@ -270,35 +270,53 @@ app.post('/api/login', (req, res) => {
       let n = String(p).replace(/[\s\-()]/g, '');
       if (n.startsWith('8') && n.length === 11) n = '+7' + n.substring(1);
       if (n.startsWith('+7') && n.length === 12) return n;
+      // Пробуем также если длина 10 (без +7 или 8)
+      if (n.length === 10 && /^\d+$/.test(n)) return '+7' + n;
       return null;
     };
     const normalizedPhone = normalizePhone(phone);
 
+    // Trim username
+    username = String(username || '').trim();
+
     const db = require('../database/init');
     // Username — без учета регистра
+    console.log('🔍 Login attempt:', { username, phone, normalizedPhone });
     db.get('SELECT * FROM users WHERE LOWER(username) = LOWER(?)', [username], (err, user) => {
       if (err) {
         console.error('❌ Error during login:', err);
         return res.status(500).json({ error: 'Ошибка базы данных' });
       }
       if (!user) {
+        console.log('⚠️ User not found for username:', username);
         return res.status(401).json({ error: 'Пользователь не найден. Зарегистрируйтесь.' });
       }
+      console.log('✅ User found:', { id: user.id, username: user.username, phone: user.phone });
 
       const userPhone = user.phone;
       const ok = (() => {
-        // Если в БД есть телефон — должен совпасть (с учетом нормализации)
-        if (userPhone) {
-          const dbNorm = normalizePhone(userPhone);
-          return !!normalizedPhone && dbNorm === normalizedPhone;
+        // Если телефона в БД нет — пускаем по одному username (можно без телефона или с любым валидным)
+        if (!userPhone) {
+          console.log('✅ No phone in DB, allowing login by username');
+          return true;
         }
-        // Если телефона в БД нет — пускаем по одному username; при наличии валидного телефона — привязываем
-        return true;
+        // Если в БД есть телефон — он должен совпасть с нормализованным введенным
+        if (normalizedPhone) {
+          const dbNorm = normalizePhone(userPhone);
+          const match = dbNorm === normalizedPhone;
+          console.log('🔍 Phone check:', { userPhone, dbNorm, normalizedPhone, match });
+          return match;
+        }
+        // Если в БД есть телефон, а введенного нет — не пускаем
+        console.log('⚠️ Phone required in DB but not provided');
+        return false;
       })();
 
       if (!ok) {
+        console.log('❌ Login failed: phone mismatch or missing');
         return res.status(401).json({ error: 'Неверные данные для входа' });
       }
+      console.log('✅ Login successful for user:', user.id);
 
       const bindPhoneIfMissing = () => new Promise((resolve) => {
         if (!userPhone && normalizedPhone) {
