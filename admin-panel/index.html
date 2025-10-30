@@ -851,6 +851,14 @@
             try {
                 const response = await fetch('/api/users');
                 const users = await response.json();
+                // Сохраняем в память для последующего редактирования
+                usersData = Array.isArray(users) ? users.map(u => ({
+                    id: u.id,
+                    name: `${u.first_name || ''} ${u.last_name || ''}`.trim() || (u.name || ''),
+                    role: u.role || 'User',
+                    status: u.status || 'Active',
+                    username: u.username || ''
+                })) : [];
                 
                 const usersList = document.getElementById('users-list');
                 if (!users || users.length === 0) {
@@ -862,7 +870,7 @@
                     <div style="padding: 15px; background: rgba(255,255,255,0.05); border-radius: 10px; margin-bottom: 10px;">
                         <div style="font-weight: 600; color: #ef4444; margin-bottom: 5px;">${user.first_name} ${user.last_name || ''}</div>
                         <div style="color: rgba(255,255,255,0.7); font-size: 14px;">@${user.username || 'нет username'}</div>
-                        <button onclick="editUserData(${user.id})" style="margin-top: 10px; padding: 8px 15px; background: #ef4444; border: none; border-radius: 8px; color: white; cursor: pointer;">Редактировать</button>
+                        <button onclick="editUser(${user.id})" style="margin-top: 10px; padding: 8px 15px; background: #ef4444; border: none; border-radius: 8px; color: white; cursor: pointer;">Редактировать</button>
                     </div>
                 `).join('');
             } catch (error) {
@@ -870,6 +878,9 @@
                 document.getElementById('users-list').innerHTML = '<div class="error">Ошибка загрузки пользователей</div>';
             }
         }
+
+        // Совместимость с прежним обработчиком
+        function editUserData(id){ return editUser(id); }
 
         // Синхронизация пользователей из бота
         async function syncBotUsers() {
@@ -1396,25 +1407,35 @@
         document.addEventListener('DOMContentLoaded', function() {
             const editForm = document.getElementById('edit-user-form');
             if (editForm) {
-                editForm.addEventListener('submit', function(e) {
+                editUserModalSaveHandler && editForm.removeEventListener('submit', editUserModalSaveHandler);
+                editUserModalSaveHandler = async function(e) {
                     e.preventDefault();
                     
                     const userId = parseInt(document.getElementById('edit-user-id').value);
                     const userName = document.getElementById('edit-user-name').value;
                     const userRole = document.getElementById('edit-user-role').value;
                     const userStatus = document.getElementById('edit-user-status').value;
-                    
-                    const user = usersData.find(u => u.id === userId);
-                    if (user) {
-                        user.name = userName;
-                        user.role = userRole;
-                        user.status = userStatus;
-                        
-                        showToast('success', 'Изменения сохранены', `${userName} обновлен`);
-                        closeEditUserModal();
-                        loadSuperUsers();
+                    try {
+                        const res = await fetch(`/api/users/${userId}`, {
+                            method: 'PUT',
+                            headers: { 'Content-Type': 'application/json' },
+                            body: JSON.stringify({ name: userName, role: userRole, status: userStatus })
+                        });
+                        if (res.ok) {
+                            showToast('success', 'Изменения сохранены', `${userName} обновлен`);
+                            closeEditUserModal();
+                            // Обновляем список
+                            await loadUsers();
+                        } else {
+                            const d = await res.json().catch(()=>({error:'Ошибка сохранения'}));
+                            showToast('error', 'Ошибка', d.error || 'Не удалось сохранить пользователя');
+                        }
+                    } catch (err) {
+                        console.error(err);
+                        showToast('error','Ошибка','Сеть недоступна');
                     }
-                });
+                };
+                editForm.addEventListener('submit', editUserModalSaveHandler);
             }
         });
 
