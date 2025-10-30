@@ -822,7 +822,9 @@
         async function loadEvents() {
             try {
                 const res = await fetch('/api/events');
-                const events = await res.json();
+                const allEvents = await res.json();
+                // Фильтруем только активные мероприятия
+                const events = (allEvents || []).filter(e => e.is_active);
                 const eventsList = document.getElementById('events-list');
                 if (!events || events.length === 0) {
                     eventsList.innerHTML = '<p style="text-align: center; color: rgba(255,255,255,0.7);">Нет предстоящих мероприятий</p>';
@@ -999,7 +1001,9 @@
         async function loadContests() {
             try {
                 const res = await fetch('/api/contests');
-                const contests = await res.json();
+                const allContests = await res.json();
+                // Фильтруем только активные конкурсы
+                const contests = (allContests || []).filter(c => c.is_active);
                 const contestsList = document.getElementById('contests-list');
                 if (!contests || contests.length === 0) {
                     contestsList.innerHTML = '<p style="text-align: center; color: rgba(255,255,255,0.7);">Нет активных конкурсов</p>';
@@ -1030,51 +1034,60 @@
 
         // Бронирование мероприятия
         async function bookEvent(eventId, eventTitle, price) {
+            if (!ensureAuthOrShowLogin()) return;
+            
             const guests = prompt('На сколько человек бронируете место?', '1');
             if (!guests || guests < 1) return;
             
-            const booking = {
-                id: Date.now(),
-                event_id: eventId,
-                event_title: eventTitle,
-                guests: parseInt(guests),
-                price: price,
-                booked_at: new Date().toISOString(),
-                status: 'confirmed'
-            };
-            
-            // Добавляем в историю действий
-            userActions.bookings.push(booking);
-            
-            // Сохраняем в localStorage
-            saveUserActions();
-            
-            // Показываем подтверждение
-            tg.showAlert(`✅ Место забронировано!\n\nСобытие: ${eventTitle}\nГостей: ${guests}\nСумма: ${price * guests} ₽`);
-            
-            // Обновляем профиль
-            loadProfile();
+            try {
+                const response = await fetch(`/api/events/${eventId}/book`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Authorization': `Bearer ${authToken}`
+                    },
+                    body: JSON.stringify({ guests: parseInt(guests) })
+                });
+
+                if (response.ok) {
+                    const booking = await response.json();
+                    
+                    // Добавляем в историю действий для локального кеша
+                    userActions.bookings.push({
+                        id: booking.id,
+                        event_id: booking.event_id,
+                        event_title: eventTitle,
+                        guests: booking.guests,
+                        price: price,
+                        booked_at: booking.created_at,
+                        status: booking.status
+                    });
+                    saveUserActions();
+                    
+                    // Показываем подтверждение
+                    tg.showAlert(`✅ Место забронировано!\n\nСобытие: ${eventTitle}\nГостей: ${guests}\n${price > 0 ? `Сумма: ${price * parseInt(guests)} ₽` : 'Бесплатно'}`);
+                    
+                    // Закрываем модалку если открыта
+                    closeEventModal();
+                    
+                    // Обновляем профиль
+                    loadProfile();
+                } else {
+                    const error = await response.json();
+                    showError(error.error || 'Ошибка бронирования');
+                }
+            } catch (error) {
+                console.error('Ошибка бронирования:', error);
+                showError('Ошибка бронирования мероприятия');
+            }
         }
 
         // Участие в конкурсе
         async function participateInContest(contestId, contestTitle) {
+            if (!ensureAuthOrShowLogin()) return;
+            
             const submission = prompt('Опишите вашу заявку на участие:');
             if (!submission) return;
-
-            const participation = {
-                id: Date.now(),
-                contest_id: contestId,
-                contest_title: contestTitle,
-                submission: submission,
-                participated_at: new Date().toISOString(),
-                status: 'pending'
-            };
-            
-            // Добавляем в историю действий
-            userActions.contestParticipants.push(participation);
-            
-            // Сохраняем в localStorage
-            saveUserActions();
 
             try {
                 const response = await fetch(`/api/contests/${contestId}/participate`, {
@@ -1087,6 +1100,19 @@
                 });
 
                 if (response.ok) {
+                    const participation = await response.json();
+                    
+                    // Добавляем в историю действий для локального кеша
+                    userActions.contestParticipants.push({
+                        id: participation.id,
+                        contest_id: participation.contest_id,
+                        contest_title: contestTitle,
+                        submission: participation.submission,
+                        participated_at: participation.created_at,
+                        status: 'pending'
+                    });
+                    saveUserActions();
+                    
                     tg.showAlert('🎯 Ваша заявка на участие принята!');
                     
                     // Обновляем профиль
@@ -1117,28 +1143,36 @@
         // Загрузка профиля
         async function loadProfile() {
             try {
-                // Используем данные текущего пользователя
-                const user = currentUser || tg.initDataUnsafe.user;
-                
-                if (!user) {
-                    document.getElementById('profile-info').innerHTML = '<div class="error">Пользователь не найден</div>';
+                if (!authToken || !currentUser) {
+                    document.getElementById('profile-info').innerHTML = '<div class="error">Необходима авторизация</div>';
                     return;
                 }
                 
-                // Загружаем действия пользователя
-                loadUserActions();
+                const user = currentUser;
                 
-                // Проверяем наличие фото профиля
-                const hasPhoto = user.photo_url || user.profile_photo_url;
+                // Загружаем реальные данные из БД
+                const [bookingsRes, contestsRes] = await Promise.all([
+                    fetch('/api/bookings', { headers: { 'Authorization': `Bearer ${authToken}` } }).catch(() => null),
+                    fetch('/api/contest-participations', { headers: { 'Authorization': `Bearer ${authToken}` } }).catch(() => null)
+                ]);
+                
+                const bookings = bookingsRes && bookingsRes.ok ? await bookingsRes.json() : [];
+                const contestParts = contestsRes && contestsRes.ok ? await contestsRes.json() : [];
+                
+                // Загружаем заказы для подсчета
+                const ordersRes = await fetch('/api/orders', { headers: { 'Authorization': `Bearer ${authToken}` } }).catch(() => null);
+                const orders = ordersRes && ordersRes.ok ? await ordersRes.json() : [];
+                
+                const hasPhoto = user.photo_url;
                 
                 const profileInfo = document.getElementById('profile-info');
                 profileInfo.innerHTML = `
                     <div class="profile-info">
                         ${hasPhoto ? `
                         <div style="text-align: center; margin-bottom: 20px;">
-                            <img src="${user.photo_url || user.profile_photo_url}" 
+                            <img src="${user.photo_url}" 
                                  alt="Фото профиля" 
-                                 style="width: 100px; height: 100px; border-radius: 50%; border: 3px solid #ef4444;">
+                                 style="width: 100px; height: 100px; border-radius: 50%; border: 3px solid #ef4444; object-fit: cover;">
                         </div>
                         ` : ''}
                         
@@ -1149,20 +1183,20 @@
                         
                         <div class="profile-item">
                             <span class="profile-label">🆔 ID в системе:</span>
-                            <span class="profile-value">${user.internal_id || user.id || 'N/A'}</span>
+                            <span class="profile-value">${user.id || 'N/A'}</span>
                         </div>
+                        
+                        ${user.username ? `
+                        <div class="profile-item">
+                            <span class="profile-label">Username:</span>
+                            <span class="profile-value">@${user.username}</span>
+                        </div>
+                        ` : ''}
                         
                         ${user.phone ? `
                         <div class="profile-item">
                             <span class="profile-label">Телефон:</span>
                             <span class="profile-value">${user.phone}</span>
-                        </div>
-                        ` : ''}
-                        
-                        ${user.created_at ? `
-                        <div class="profile-item">
-                            <span class="profile-label">Дата регистрации:</span>
-                            <span class="profile-value">${new Date(user.created_at).toLocaleDateString('ru-RU')}</span>
                         </div>
                         ` : ''}
                         
@@ -1178,26 +1212,26 @@
                             
                             <div style="display: flex; justify-content: space-around; margin-bottom: 15px;">
                                 <div style="text-align: center;">
-                                    <div style="font-size: 24px; color: #ef4444; font-weight: bold;">${userActions.bookings.length}</div>
+                                    <div style="font-size: 24px; color: #ef4444; font-weight: bold;">${bookings.length}</div>
                                     <div style="font-size: 12px; color: rgba(255,255,255,0.7);">Бронирований</div>
                                 </div>
                                 <div style="text-align: center;">
-                                    <div style="font-size: 24px; color: #ef4444; font-weight: bold;">${userActions.orders.length}</div>
+                                    <div style="font-size: 24px; color: #ef4444; font-weight: bold;">${orders.length}</div>
                                     <div style="font-size: 12px; color: rgba(255,255,255,0.7);">Заказов</div>
                                 </div>
                                 <div style="text-align: center;">
-                                    <div style="font-size: 24px; color: #ef4444; font-weight: bold;">${userActions.contestParticipants.length}</div>
+                                    <div style="font-size: 24px; color: #ef4444; font-weight: bold;">${contestParts.length}</div>
                                     <div style="font-size: 12px; color: rgba(255,255,255,0.7);">Конкурсов</div>
                                 </div>
                             </div>
                             
-                            ${userActions.bookings.length > 0 ? `
+                            ${bookings.length > 0 ? `
                             <div style="margin-top: 15px;">
                                 <h5 style="color: rgba(255,255,255,0.9); margin-bottom: 10px; font-size: 14px;">📅 Последние бронирования:</h5>
-                                ${userActions.bookings.slice(-3).map(booking => `
+                                ${bookings.slice(0, 3).map(booking => `
                                     <div style="padding: 8px; background: rgba(255,255,255,0.05); border-radius: 8px; margin-bottom: 8px;">
-                                        <div style="font-weight: 600; color: #ef4444;">${booking.event_title}</div>
-                                        <div style="font-size: 12px; color: rgba(255,255,255,0.7);">Гостей: ${booking.guests} | ${new Date(booking.booked_at).toLocaleDateString('ru-RU')}</div>
+                                        <div style="font-weight: 600; color: #ef4444;">${booking.event_title || 'Мероприятие'}</div>
+                                        <div style="font-size: 12px; color: rgba(255,255,255,0.7);">Гостей: ${booking.guests} | ${new Date(booking.created_at).toLocaleDateString('ru-RU')}</div>
                                     </div>
                                 `).join('')}
                             </div>
@@ -1214,7 +1248,15 @@
         // Загрузка заказов
         async function loadOrders() {
             try {
-                const res = await fetch('/api/orders');
+                const headers = {};
+                if (authToken) {
+                    headers['Authorization'] = `Bearer ${authToken}`;
+                }
+                const res = await fetch('/api/orders', { headers });
+                if (!res.ok) {
+                    document.getElementById('orders-list').innerHTML = '<p style="text-align: center; color: rgba(255,255,255,0.7);">Необходима авторизация</p>';
+                    return;
+                }
                 const orders = await res.json();
                 const ordersList = document.getElementById('orders-list');
                 if (!orders || orders.length === 0) {
@@ -1223,25 +1265,30 @@
                 }
 
                 ordersList.innerHTML = orders.map(order => `
-                    <div class="order-item">
-                        <div class="order-status status-${order.status}">
-                            ${order.status === 'new' ? 'Новый' : 
-                              order.status === 'taken' ? 'В работе' : 
-                              order.status === 'completed' ? 'Выполнен' : order.status}
+                    <div class="order-item" style="background: rgba(255,255,255,0.05); padding: 15px; border-radius: 12px; margin-bottom: 15px;">
+                        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px;">
+                            <h4 style="margin: 0; color: #ef4444;">Заказ #${order.id}</h4>
+                            <span class="order-status status-${order.status}" style="padding: 4px 12px; border-radius: 6px; font-size: 12px; font-weight: 600;">
+                                ${order.status === 'new' ? '🆕 Новый' : 
+                                  order.status === 'taken' ? '⏳ В работе' : 
+                                  order.status === 'completed' ? '✅ Выполнен' : order.status}
+                            </span>
                         </div>
-                        <h4 style="margin-bottom: 10px;">Заказ #${order.id}</h4>
-                        <div style="margin-bottom: 10px; color: rgba(255,255,255,0.8);">
-                            ${(order.items||[]).map(i => `${i.quantity} × ${i.drink_id || i.drink_name} — ${i.price} ₽`).join('<br>')}
+                        <div style="margin-bottom: 10px; color: rgba(255,255,255,0.9); padding: 10px; background: rgba(255,255,255,0.03); border-radius: 8px;">
+                            ${(order.items||[]).length > 0 ? 
+                                (order.items||[]).map(i => `<div style="margin-bottom: 5px;">${i.quantity} × ${i.drink_name || 'Напиток #' + i.drink_id} — ${i.price * i.quantity} ₽</div>`).join('') :
+                                '<div>Нет позиций</div>'}
                         </div>
-                        <div style="display: flex; justify-content: space-between; align-items: center;">
-                            <span style="color: rgba(255,255,255,0.7);">
+                        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px;">
+                            <span style="color: rgba(255,255,255,0.7); font-size: 14px;">
                                 📅 ${new Date(order.created_at).toLocaleString('ru-RU')}
                             </span>
-                            <span style="font-weight: 600; color: #ef4444;">${order.total_amount} ₽</span>
+                            <span style="font-weight: 700; color: #ef4444; font-size: 18px;">${order.total_amount} ₽</span>
                         </div>
                         ${order.confirmation_code ? `
-                            <div style="margin-top: 10px; padding: 10px; background: rgba(34, 197, 94, 0.2); border-radius: 8px;">
-                                <strong>Код подтверждения:</strong> ${order.confirmation_code}
+                            <div style="margin-top: 10px; padding: 12px; background: rgba(34, 197, 94, 0.2); border: 1px solid rgba(34, 197, 94, 0.5); border-radius: 8px;">
+                                <strong style="color: #22c55e;">🔑 Код подтверждения:</strong> 
+                                <span style="font-family: monospace; color: #fff; font-size: 16px; font-weight: 700;">${order.confirmation_code}</span>
                             </div>
                         ` : ''}
                     </div>

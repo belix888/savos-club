@@ -1002,6 +1002,96 @@ app.delete('/api/events/:id', (req, res) => {
   }
 });
 
+app.get('/api/bookings', (req, res) => {
+  try {
+    const auth = req.headers.authorization || '';
+    let userId = null;
+    
+    if (auth.startsWith('Bearer ')) {
+      try {
+        const token = auth.substring(7);
+        const jwt = require('jsonwebtoken');
+        const payload = jwt.verify(token, process.env.JWT_SECRET || 'savosbot_club_super_secret_jwt_key_2024');
+        userId = payload.id;
+      } catch (e) {
+        return res.status(401).json({ error: 'Invalid token' });
+      }
+    } else {
+      return res.status(401).json({ error: 'Unauthorized' });
+    }
+    
+    const db = require('../database/init');
+    db.all(`
+      SELECT eb.*, e.title as event_title, e.date as event_date, e.price as event_price
+      FROM event_bookings eb
+      LEFT JOIN events e ON e.id = eb.event_id
+      WHERE eb.user_id = ?
+      ORDER BY eb.created_at DESC
+    `, [userId], (err, rows) => {
+      if (err) return res.status(500).json({ error: 'Database error' });
+      res.json(rows || []);
+    });
+  } catch (error) {
+    console.error('❌ Error fetching bookings:', error);
+    res.status(500).json({ error: 'Internal server error' });
+  }
+});
+
+app.post('/api/events/:id/book', (req, res) => {
+  try {
+    const { id } = req.params;
+    const auth = req.headers.authorization || '';
+    if (!auth.startsWith('Bearer ')) {
+      return res.status(401).json({ error: 'Unauthorized' });
+    }
+    
+    const token = auth.substring(7);
+    const jwt = require('jsonwebtoken');
+    let userId;
+    try {
+      const payload = jwt.verify(token, process.env.JWT_SECRET || 'savosbot_club_super_secret_jwt_key_2024');
+      userId = payload.id;
+    } catch (e) {
+      return res.status(401).json({ error: 'Invalid token' });
+    }
+    
+    const { guests } = req.body;
+    const guestsCount = parseInt(guests) || 1;
+    if (guestsCount < 1) {
+      return res.status(400).json({ error: 'Guests must be at least 1' });
+    }
+    
+    const db = require('../database/init');
+    
+    // Проверяем, существует ли мероприятие
+    db.get('SELECT * FROM events WHERE id = ?', [id], (err, event) => {
+      if (err) return res.status(500).json({ error: 'Database error' });
+      if (!event) return res.status(404).json({ error: 'Event not found' });
+      
+      // Создаем бронирование
+      db.run(
+        'INSERT INTO event_bookings (event_id, user_id, guests, status) VALUES (?, ?, ?, ?)',
+        [id, userId, guestsCount, 'confirmed'],
+        function(bookErr) {
+          if (bookErr) return res.status(500).json({ error: 'Database error' });
+          
+          res.json({
+            id: this.lastID,
+            event_id: parseInt(id),
+            user_id: userId,
+            guests: guestsCount,
+            status: 'confirmed',
+            created_at: new Date().toISOString()
+          });
+        }
+      );
+    });
+  } catch (error) {
+    console.error('❌ Error booking event:', error);
+    res.status(500).json({ error: 'Internal server error' });
+  }
+});
+
 // Drinks endpoint
 app.get('/api/drinks', (req, res) => {
   try {
@@ -1076,20 +1166,47 @@ app.patch('/api/drinks/:id/toggle', (req, res) => {
 // Orders endpoint
 app.get('/api/orders', (req, res) => {
   try {
+    const auth = req.headers.authorization || '';
+    let userId = null;
+    
+    // Если есть токен, извлекаем user_id
+    if (auth.startsWith('Bearer ')) {
+      try {
+        const token = auth.substring(7);
+        const jwt = require('jsonwebtoken');
+        const payload = jwt.verify(token, process.env.JWT_SECRET || 'savosbot_club_super_secret_jwt_key_2024');
+        userId = payload.id;
+      } catch (e) {
+        // Невалидный токен - игнорируем, покажем все заказы (для админа)
+      }
+    }
+    
     const db = require('../database/init');
-    const sql = `
+    let sql = `
       SELECT o.*, 
         (
           SELECT json_group_array(json_object(
             'drink_id', oi.drink_id,
             'quantity', oi.quantity,
-            'price', oi.price
+            'price', oi.price,
+            'drink_name', d.name
           ))
-          FROM order_items oi WHERE oi.order_id = o.id
+          FROM order_items oi 
+          LEFT JOIN drinks d ON d.id = oi.drink_id
+          WHERE oi.order_id = o.id
         ) as items
-      FROM orders o ORDER BY o.created_at DESC
+      FROM orders o
     `;
-    db.all(sql, [], (err, rows) => {
+    const params = [];
+    
+    if (userId) {
+      sql += ' WHERE o.user_id = ?';
+      params.push(userId);
+    }
+    
+    sql += ' ORDER BY o.created_at DESC';
+    
+    db.all(sql, params, (err, rows) => {
       if (err) return res.status(500).json({ error: 'Database error' });
       const orders = (rows || []).map(r => ({
         id: r.id,
@@ -1103,6 +1220,96 @@ app.get('/api/orders', (req, res) => {
     });
   } catch (error) {
     console.error('❌ Error fetching orders:', error);
+    res.status(500).json({ error: 'Internal server error' });
+  }
+});
+
+app.post('/api/orders', (req, res) => {
+  try {
+    const auth = req.headers.authorization || '';
+    if (!auth.startsWith('Bearer ')) {
+      return res.status(401).json({ error: 'Unauthorized' });
+    }
+    
+    const token = auth.substring(7);
+    const jwt = require('jsonwebtoken');
+    let userId;
+    try {
+      const payload = jwt.verify(token, process.env.JWT_SECRET || 'savosbot_club_super_secret_jwt_key_2024');
+      userId = payload.id;
+    } catch (e) {
+      return res.status(401).json({ error: 'Invalid token' });
+    }
+    
+    const { items } = req.body;
+    if (!items || !Array.isArray(items) || items.length === 0) {
+      return res.status(400).json({ error: 'Items required' });
+    }
+    
+    const db = require('../database/init');
+    
+    // Получаем цены напитков
+    const drinkIds = items.map(i => i.drink_id);
+    const placeholders = drinkIds.map(() => '?').join(',');
+    
+    db.all(`SELECT id, price FROM drinks WHERE id IN (${placeholders})`, drinkIds, (err, drinks) => {
+      if (err) return res.status(500).json({ error: 'Database error' });
+      
+      const drinkPrices = {};
+      drinks.forEach(d => { drinkPrices[d.id] = d.price; });
+      
+      // Считаем общую сумму
+      let totalAmount = 0;
+      items.forEach(item => {
+        const price = drinkPrices[item.drink_id] || 0;
+        totalAmount += price * item.quantity;
+      });
+      
+      // Генерируем код подтверждения
+      const confirmationCode = Math.floor(1000 + Math.random() * 9000).toString();
+      
+      // Создаем заказ
+      db.run(
+        'INSERT INTO orders (user_id, total_amount, status, confirmation_code) VALUES (?, ?, ?, ?)',
+        [userId, totalAmount, 'new', confirmationCode],
+        function(orderErr) {
+          if (orderErr) return res.status(500).json({ error: 'Database error' });
+          const orderId = this.lastID;
+          
+          // Добавляем позиции заказа
+          const insertItem = (index) => {
+            if (index >= items.length) {
+              res.json({
+                id: orderId,
+                total_amount: totalAmount,
+                status: 'new',
+                confirmation_code: confirmationCode,
+                items: items.map(item => ({
+                  drink_id: item.drink_id,
+                  quantity: item.quantity,
+                  price: drinkPrices[item.drink_id] || 0
+                }))
+              });
+              return;
+            }
+            
+            const item = items[index];
+            db.run(
+              'INSERT INTO order_items (order_id, drink_id, quantity, price) VALUES (?, ?, ?, ?)',
+              [orderId, item.drink_id, item.quantity, drinkPrices[item.drink_id] || 0],
+              (itemErr) => {
+                if (itemErr) return res.status(500).json({ error: 'Database error' });
+                insertItem(index + 1);
+              }
+            );
+          };
+          
+          insertItem(0);
+        }
+      );
+    });
+  } catch (error) {
+    console.error('❌ Error creating order:', error);
     res.status(500).json({ error: 'Internal server error' });
   }
 });
@@ -1155,6 +1362,99 @@ app.put('/api/contests/:id', (req, res) => {
     );
   } catch (error) {
     console.error('❌ Error updating contest:', error);
+    res.status(500).json({ error: 'Internal server error' });
+  }
+});
+
+app.get('/api/contest-participations', (req, res) => {
+  try {
+    const auth = req.headers.authorization || '';
+    let userId = null;
+    
+    if (auth.startsWith('Bearer ')) {
+      try {
+        const token = auth.substring(7);
+        const jwt = require('jsonwebtoken');
+        const payload = jwt.verify(token, process.env.JWT_SECRET || 'savosbot_club_super_secret_jwt_key_2024');
+        userId = payload.id;
+      } catch (e) {
+        return res.status(401).json({ error: 'Invalid token' });
+      }
+    } else {
+      return res.status(401).json({ error: 'Unauthorized' });
+    }
+    
+    const db = require('../database/init');
+    db.all(`
+      SELECT cp.*, c.title as contest_title
+      FROM contest_participants cp
+      LEFT JOIN contests c ON c.id = cp.contest_id
+      WHERE cp.user_id = ?
+      ORDER BY cp.created_at DESC
+    `, [userId], (err, rows) => {
+      if (err) return res.status(500).json({ error: 'Database error' });
+      res.json(rows || []);
+    });
+  } catch (error) {
+    console.error('❌ Error fetching contest participations:', error);
+    res.status(500).json({ error: 'Internal server error' });
+  }
+});
+
+app.post('/api/contests/:id/participate', (req, res) => {
+  try {
+    const { id } = req.params;
+    const auth = req.headers.authorization || '';
+    if (!auth.startsWith('Bearer ')) {
+      return res.status(401).json({ error: 'Unauthorized' });
+    }
+    
+    const token = auth.substring(7);
+    const jwt = require('jsonwebtoken');
+    let userId;
+    try {
+      const payload = jwt.verify(token, process.env.JWT_SECRET || 'savosbot_club_super_secret_jwt_key_2024');
+      userId = payload.id;
+    } catch (e) {
+      return res.status(401).json({ error: 'Invalid token' });
+    }
+    
+    const { submission } = req.body;
+    
+    const db = require('../database/init');
+    
+    // Проверяем, существует ли конкурс
+    db.get('SELECT * FROM contests WHERE id = ?', [id], (err, contest) => {
+      if (err) return res.status(500).json({ error: 'Database error' });
+      if (!contest) return res.status(404).json({ error: 'Contest not found' });
+      
+      // Проверяем, не участвовал ли уже пользователь
+      db.get('SELECT * FROM contest_participants WHERE contest_id = ? AND user_id = ?', [id, userId], (err, existing) => {
+        if (err) return res.status(500).json({ error: 'Database error' });
+        if (existing) {
+          return res.status(409).json({ error: 'Вы уже участвуете в этом конкурсе' });
+        }
+        
+        // Добавляем участие
+        db.run(
+          'INSERT INTO contest_participants (contest_id, user_id, submission) VALUES (?, ?, ?)',
+          [id, userId, submission || null],
+          function(partErr) {
+            if (partErr) return res.status(500).json({ error: 'Database error' });
+            
+            res.json({
+              id: this.lastID,
+              contest_id: parseInt(id),
+              user_id: userId,
+              submission: submission || null,
+              created_at: new Date().toISOString()
+            });
+          }
+        );
+      });
+    });
+  } catch (error) {
+    console.error('❌ Error participating in contest:', error);
     res.status(500).json({ error: 'Internal server error' });
   }
 });

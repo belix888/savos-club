@@ -199,6 +199,20 @@ db.serialize(() => {
     )
   `);
 
+  // Таблица бронирований мероприятий
+  db.run(`
+    CREATE TABLE IF NOT EXISTS event_bookings (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      event_id INTEGER NOT NULL,
+      user_id INTEGER NOT NULL,
+      guests INTEGER NOT NULL DEFAULT 1,
+      status TEXT DEFAULT 'confirmed',
+      created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+      FOREIGN KEY (event_id) REFERENCES events (id),
+      FOREIGN KEY (user_id) REFERENCES users (id)
+    )
+  `);
+
   // Таблица смен официантов
   db.run(`
     CREATE TABLE IF NOT EXISTS waiter_shifts (
