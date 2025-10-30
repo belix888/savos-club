@@ -640,21 +640,51 @@
         // Инициализация приложения
         async function initApp() {
             try {
+                showLoader();
                 loadUserActions();
 
                 // 1) Сессия по нашему токену
                 const savedToken = localStorage.getItem('miniapp_token');
                 if (savedToken) {
-                    const me = await fetch('/api/session', { headers: { 'Authorization': `Bearer ${savedToken}` } });
-                    if (me.ok) {
-                        const { user } = await me.json();
+                    try {
+                        const me = await fetch('/api/session', { 
+                            headers: { 'Authorization': `Bearer ${savedToken}` },
+                            timeout: 5000
+                        }).catch(() => null);
+                        
+                        if (me && me.ok) {
+                            const data = await me.json().catch(() => null);
+                            if (data && data.user) {
+                                authToken = savedToken;
+                                currentUser = data.user;
+                                showMainApp();
+                                await Promise.all([loadEvents(), loadDrinks(), loadContests(), loadProfile(), loadOrders()]);
+                                hideLoader();
+                                return;
+                            }
+                        }
+                        
+                        // Только если это именно ошибка авторизации (401/403), а не сеть - удаляем токен
+                        if (me && (me.status === 401 || me.status === 403)) {
+                            console.log('⚠️ Token expired or invalid, removing...');
+                            localStorage.removeItem('miniapp_token');
+                        } else if (!me) {
+                            // Сетевая ошибка - сохраняем токен и пробуем продолжить
+                            console.log('⚠️ Network error, keeping token');
+                            authToken = savedToken;
+                            showMainApp();
+                            await Promise.all([loadEvents(), loadDrinks(), loadContests(), loadProfile(), loadOrders()]);
+                            hideLoader();
+                            return;
+                        }
+                    } catch (err) {
+                        console.error('Session check error:', err);
+                        // При ошибке сети сохраняем токен
                         authToken = savedToken;
-                        currentUser = user;
                         showMainApp();
                         await Promise.all([loadEvents(), loadDrinks(), loadContests(), loadProfile(), loadOrders()]);
+                        hideLoader();
                         return;
-                    } else {
-                        localStorage.removeItem('miniapp_token');
                     }
                 }
 
@@ -679,6 +709,7 @@
                             localStorage.setItem('miniapp_token', authToken);
                             showMainApp();
                             await Promise.all([loadEvents(), loadDrinks(), loadContests(), loadProfile(), loadOrders()]);
+                            hideLoader();
                             return;
                         }
                     } catch (e) { /* ignore */ }
@@ -687,9 +718,11 @@
                 // 3) Показать экран регистрации/входа
                 document.getElementById('registrationContainer').style.display = 'block';
                 document.getElementById('mainApp').style.display = 'none';
+                hideLoader();
             } catch (error) {
                 console.error('Ошибка инициализации:', error);
                 showError('Ошибка загрузки данных');
+                hideLoader();
             }
         }
 
