@@ -282,6 +282,68 @@
         .status-taken { background: #f59e0b; color: white; }
         .status-completed { background: #22c55e; color: white; }
 
+        /* Registration form styles */
+        .registration-container {
+            display: none;
+            animation: fadeIn 0.5s ease;
+        }
+
+        .registration-container.show {
+            display: block;
+        }
+
+        .registration-form {
+            background: rgba(255, 255, 255, 0.1);
+            border-radius: 15px;
+            padding: 25px;
+            backdrop-filter: blur(10px);
+            border: 1px solid rgba(255, 255, 255, 0.2);
+        }
+
+        .form-group-reg {
+            margin-bottom: 20px;
+        }
+
+        .form-group-reg label {
+            display: block;
+            margin-bottom: 8px;
+            font-weight: 600;
+            color: rgba(255, 255, 255, 0.9);
+            font-size: 14px;
+        }
+
+        .form-group-reg label .required {
+            color: #ef4444;
+        }
+
+        .form-group-reg input {
+            width: 100%;
+            padding: 12px 15px;
+            border: 2px solid rgba(255, 255, 255, 0.2);
+            border-radius: 10px;
+            background: rgba(255, 255, 255, 0.1);
+            color: white;
+            font-size: 16px;
+            transition: all 0.3s ease;
+            outline: none;
+        }
+
+        .form-group-reg input:focus {
+            border-color: #ef4444;
+            background: rgba(255, 255, 255, 0.15);
+            box-shadow: 0 0 0 3px rgba(239, 68, 68, 0.2);
+        }
+
+        .form-group-reg input::placeholder {
+            color: rgba(255, 255, 255, 0.5);
+        }
+
+        .help-text {
+            font-size: 12px;
+            color: rgba(255, 255, 255, 0.6);
+            margin-top: 5px;
+        }
+
         @media (max-width: 480px) {
             .container {
                 padding: 15px;
@@ -300,6 +362,77 @@
 </head>
 <body>
     <div class="container">
+        <!-- Registration form (shown if user not registered) -->
+        <div class="registration-container" id="registrationContainer">
+            <div class="header">
+                <h1>✨ Регистрация</h1>
+                <p>Заполните данные для доступа к клубу</p>
+            </div>
+            <div class="registration-form">
+                <div id="registrationError" style="display: none;" class="error"></div>
+                <form id="registrationForm">
+                    <div class="form-group-reg">
+                        <label for="regUsername">
+                            Telegram Username <span class="required">*</span>
+                        </label>
+                        <input 
+                            type="text" 
+                            id="regUsername" 
+                            placeholder="username (без @)" 
+                            required
+                            autocomplete="username"
+                        >
+                        <div class="help-text">Только буквы, цифры и подчеркивание, от 5 до 32 символов</div>
+                    </div>
+
+                    <div class="form-group-reg">
+                        <label for="regFirstName">
+                            Имя <span class="required">*</span>
+                        </label>
+                        <input 
+                            type="text" 
+                            id="regFirstName" 
+                            placeholder="Ваше имя" 
+                            required
+                            autocomplete="given-name"
+                        >
+                    </div>
+
+                    <div class="form-group-reg">
+                        <label for="regLastName">
+                            Фамилия
+                        </label>
+                        <input 
+                            type="text" 
+                            id="regLastName" 
+                            placeholder="Ваша фамилия (необязательно)"
+                            autocomplete="family-name"
+                        >
+                    </div>
+
+                    <div class="form-group-reg">
+                        <label for="regPhone">
+                            Телефон <span class="required">*</span>
+                        </label>
+                        <input 
+                            type="tel" 
+                            id="regPhone" 
+                            placeholder="+79991234567 или 89991234567" 
+                            required
+                            autocomplete="tel"
+                        >
+                        <div class="help-text">Формат: +7XXXXXXXXXX или 8XXXXXXXXXX</div>
+                    </div>
+
+                    <button type="submit" class="btn" id="registerSubmitBtn" style="width: 100%;">
+                        ✨ Зарегистрироваться
+                    </button>
+                </form>
+            </div>
+        </div>
+
+        <!-- Main app (shown if user is registered) -->
+        <div id="mainApp">
         <div class="header">
             <h1>🏛️ SavosBot Club</h1>
             <p>Добро пожаловать в эксклюзивный клуб</p>
@@ -369,6 +502,7 @@
                     </div>
                 </div>
             </div>
+        </div>
         </div>
     </div>
 
@@ -545,7 +679,7 @@
                             <p style="color: rgba(255,255,255,0.7); font-size: 14px;">${drink.description || ''}</p>
                         </div>
                         <div style="display: flex; align-items: center; gap: 15px;">
-                            <span class="drink-price">${drink.price} ₽</span>
+                            <span class="drink-price">${drink.price} ${(drink.category && drink.category.toLowerCase().includes('коктейл')) ? 'фиш.' : '₽'}</span>
                             <div class="quantity-controls">
                                 <button class="quantity-btn" onclick="updateQuantity(${drink.id}, -1)" ${cart[drink.id] ? '' : 'disabled'}>-</button>
                                 <span class="quantity">${cart[drink.id] || 0}</span>

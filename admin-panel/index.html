@@ -1095,15 +1095,7 @@
                 if (!drinks || drinks.length === 0) { list.innerHTML = '<p style="text-align:center;color:rgba(255,255,255,0.7);">Нет напитков</p>'; return; }
                 list.innerHTML = drinks.map(drink => `
                     <div class=\"drink-item\">
-                        <div class=\"drink-info\">
-                            <h4>${drink.name}</h4>
-                            <p style=\"color: rgba(255,255,255,0.7); font-size: 14px;\">${drink.description || ''}</p>
-                        </div>
-                        <div style=\"display:flex; align-items:center; gap:15px;\">
-                            <span class=\"drink-price\">${drink.price} ₽</span>
-                            <button class=\"btn btn-secondary\" onclick=\"toggleDrink(${drink.id})\">${drink.is_available ? 'Скрыть' : 'Вернуть'}</button>
-                        </div>
-                    </div>
+                        <div class=\"drink-info\">\n                            <h4>${drink.name}</h4>\n                            <p style=\"color: rgba(255,255,255,0.7); font-size: 14px;\">${drink.description || ''}</p>\n                        </div>\n                        <div style=\"display:flex; align-items:center; gap:15px;\">\n                            <span class=\"drink-price\">${drink.price} ${(drink.category && drink.category.toLowerCase().includes('коктейл')) ? 'фиш.' : '₽'}</span>\n                            <button class=\"btn btn-secondary\" onclick=\"toggleDrink(${drink.id})\">${drink.is_available ? 'Скрыть' : 'Вернуть'}</button>\n                        </div>\n                    </div>
                 `).join('');
             } catch (error) {
                 console.error('Ошибка загрузки напитков:', error);
