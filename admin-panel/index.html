@@ -315,6 +315,31 @@
             outline: none;
             border-color: #ef4444;
         }
+        /* Inline form controls themed to site */
+        .ap-form input,
+        .ap-form select,
+        .ap-form textarea {
+            width: 100%;
+            padding: 12px 14px;
+            border: 1px solid rgba(255, 255, 255, 0.25);
+            border-radius: 10px;
+            background: rgba(255, 255, 255, 0.08);
+            color: #ffffff;
+            font-size: 14px;
+            transition: border-color .2s ease, box-shadow .2s ease, background .2s ease;
+            outline: none;
+        }
+        .ap-form input::placeholder,
+        .ap-form textarea::placeholder { color: rgba(255,255,255,0.55); }
+        .ap-form input[type="date"],
+        .ap-form input[type="datetime-local"] { color-scheme: dark; }
+        .ap-form input:focus,
+        .ap-form select:focus,
+        .ap-form textarea:focus {
+            border-color: #ef4444;
+            background: rgba(255, 255, 255, 0.12);
+            box-shadow: 0 0 0 3px rgba(239, 68, 68, 0.2);
+        }
     </style>
 </head>
 <body>
@@ -379,16 +404,59 @@
                         <h3 style="margin:0;">📅 Мероприятия</h3>
                         <button class="btn btn-secondary" onclick="loadEventsData()">🔃 Обновить</button>
                     </div>
-                    <form id="create-event-form" style="display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:10px;margin-bottom:15px;">
+                    <form id="create-event-form" class="ap-form" style="display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:10px;margin-bottom:15px;">
                         <input type="text" id="event-title" placeholder="Название" required>
                         <input type="datetime-local" id="event-date" required>
                         <input type="number" id="event-price" placeholder="Цена, ₽" min="0" step="1">
                         <input type="url" id="event-image" placeholder="Ссылка на изображение (опц.)">
+                        <input type="url" id="event-ticket" placeholder="Ссылка на покупку билетов (опц.)">
+                        <input type="text" id="event-desc" placeholder="Описание (опц.)">
                         <button class="btn" type="submit">➕ Создать</button>
                     </form>
                     <div id="events-list">
                         <div class="loading">Загрузка мероприятий...</div>
                     </div>
+                </div>
+            </div>
+
+            <!-- Modal редактирования мероприятия -->
+            <div id="edit-event-modal" class="modal" style="display:none;">
+                <div class="modal-content">
+                    <div class="modal-header">
+                        <h2>✏️ Редактирование мероприятия</h2>
+                        <span class="close" onclick="closeEditEventModal()">&times;</span>
+                    </div>
+                    <form id="edit-event-form" class="ap-form">
+                        <input type="hidden" id="edit-event-id">
+                        <div class="form-group">
+                            <label>Название</label>
+                            <input type="text" id="edit-event-title" required>
+                        </div>
+                        <div class="form-group">
+                            <label>Дата и время</label>
+                            <input type="datetime-local" id="edit-event-date" required>
+                        </div>
+                        <div class="form-group">
+                            <label>Цена (₽)</label>
+                            <input type="number" id="edit-event-price" min="0" step="1">
+                        </div>
+                        <div class="form-group">
+                            <label>Описание</label>
+                            <input type="text" id="edit-event-desc" placeholder="Короткое описание (опц.)">
+                        </div>
+                        <div class="form-group">
+                            <label>Ссылка на афишу (изображение)</label>
+                            <input type="url" id="edit-event-image" placeholder="https://...">
+                        </div>
+                        <div class="form-group">
+                            <label>Ссылка на покупку билетов</label>
+                            <input type="url" id="edit-event-ticket" placeholder="https://...">
+                        </div>
+                        <div style="display:flex;gap:10px;justify-content:flex-end;">
+                            <button type="button" class="btn btn-secondary" onclick="deleteEventConfirmed()">🗑️ Удалить</button>
+                            <button type="submit" class="btn">💾 Сохранить</button>
+                        </div>
+                    </form>
                 </div>
             </div>
 
@@ -398,7 +466,7 @@
                         <h3 style="margin:0;">🍸 Напитки</h3>
                         <button class="btn btn-secondary" onclick="loadDrinksData()">🔃 Обновить</button>
                     </div>
-                    <form id="create-drink-form" style="display:grid;grid-template-columns:repeat(auto-fit,minmax(160px,1fr));gap:10px;margin-bottom:15px;">
+                    <form id="create-drink-form" class="ap-form" style="display:grid;grid-template-columns:repeat(auto-fit,minmax(160px,1fr));gap:10px;margin-bottom:15px;">
                         <input type="text" id="drink-name" placeholder="Название" required>
                         <input type="text" id="drink-category" placeholder="Категория">
                         <input type="number" id="drink-price" placeholder="Цена, ₽" required min="0" step="1">
@@ -429,7 +497,7 @@
                         <h3 style="margin:0;">🏆 Конкурсы</h3>
                         <button class="btn btn-secondary" onclick="loadContestsData()">🔃 Обновить</button>
                     </div>
-                    <form id="create-contest-form" style="display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:10px;margin-bottom:15px;">
+                    <form id="create-contest-form" class="ap-form" style="display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:10px;margin-bottom:15px;">
                         <input type="text" id="contest-title" placeholder="Название" required>
                         <input type="date" id="contest-start" required>
                         <input type="date" id="contest-end" required>
@@ -924,7 +992,7 @@
                     return;
                 }
                 list.innerHTML = events.map(ev => `
-                    <div class="card" style="margin-bottom: 12px;">
+                    <div class="card" style="margin-bottom: 12px; cursor: pointer;" onclick="openEditEvent(${ev.id})">
                         <div style="display:flex; justify-content: space-between; align-items: center; gap: 10px; flex-wrap: wrap;">
                             <div>
                                 <div style="font-weight: 600; color: #ef4444;">${ev.title}</div>
@@ -933,9 +1001,7 @@
                             <div style="font-weight: 700; color: #ef4444;">${ev.price ? ev.price + ' ₽' : 'Бесплатно'}</div>
                         </div>
                         ${ev.description ? `<p style=\"margin-top:8px;color:rgba(255,255,255,0.8);\">${ev.description}</p>` : ''}
-                        <div style="display:flex; gap:8px; margin-top:10px;">
-                            <button class="btn btn-secondary" onclick="deleteEvent(${ev.id})">🗑️ Удалить</button>
-                        </div>
+                        
                     </div>
                 `).join('');
             } catch (error) {
@@ -951,7 +1017,9 @@
                 title: document.getElementById('event-title').value.trim(),
                 date: document.getElementById('event-date').value,
                 price: Number(document.getElementById('event-price').value || 0),
-                image_url: document.getElementById('event-image').value.trim() || null
+                image_url: document.getElementById('event-image').value.trim() || null,
+                description: (document.getElementById('event-desc')?.value || '').trim() || null,
+                ticket_url: (document.getElementById('event-ticket')?.value || '').trim() || null
             };
             const res = await fetch('/api/events', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) });
             if (res.ok) { showToast('success','Мероприятие создано',''); (e.target).reset(); loadEventsData(); }
@@ -962,6 +1030,60 @@
             if (!confirm('Удалить мероприятие?')) return;
             const r = await fetch(`/api/events/${id}`, { method: 'DELETE' });
             if (r.ok) { loadEventsData(); showToast('success','Удалено',''); } else { showToast('error','Ошибка','Не удалось удалить'); }
+        }
+
+        // Открыть модал редактирования события
+        async function openEditEvent(id){
+            try {
+                const r = await fetch(`/api/events/${id}`);
+                if (!r.ok) { showToast('error','Ошибка','Мероприятие не найдено'); return; }
+                const ev = await r.json();
+                document.getElementById('edit-event-id').value = ev.id;
+                document.getElementById('edit-event-title').value = ev.title || '';
+                // Приводим к локальному формату datetime-local
+                const dt = ev.date ? new Date(ev.date) : null;
+                if (dt) {
+                    const pad = n => String(n).padStart(2,'0');
+                    const local = `${dt.getFullYear()}-${pad(dt.getMonth()+1)}-${pad(dt.getDate())}T${pad(dt.getHours())}:${pad(dt.getMinutes())}`;
+                    document.getElementById('edit-event-date').value = local;
+                } else {
+                    document.getElementById('edit-event-date').value = '';
+                }
+                document.getElementById('edit-event-price').value = ev.price || 0;
+                document.getElementById('edit-event-desc').value = ev.description || '';
+                document.getElementById('edit-event-image').value = ev.image_url || '';
+                document.getElementById('edit-event-ticket').value = ev.ticket_url || '';
+                document.getElementById('edit-event-modal').style.display = 'block';
+            } catch(e){ console.error(e); showToast('error','Ошибка','Не удалось открыть карточку'); }
+        }
+
+        function closeEditEventModal(){ document.getElementById('edit-event-modal').style.display = 'none'; }
+
+        // Сохранить изменения
+        document.getElementById('edit-event-form')?.addEventListener('submit', async (e)=>{
+            e.preventDefault();
+            const id = document.getElementById('edit-event-id').value;
+            const payload = {
+                title: document.getElementById('edit-event-title').value.trim(),
+                date: document.getElementById('edit-event-date').value,
+                price: Number(document.getElementById('edit-event-price').value || 0),
+                description: document.getElementById('edit-event-desc').value.trim() || null,
+                image_url: document.getElementById('edit-event-image').value.trim() || null,
+                ticket_url: document.getElementById('edit-event-ticket').value.trim() || null
+            };
+            const r = await fetch(`/api/events/${id}`, { method:'PUT', headers:{'Content-Type':'application/json'}, body: JSON.stringify(payload) });
+            if (r.ok) { showToast('success','Сохранено','Изменения применены'); closeEditEventModal(); loadEventsData(); }
+            else { const d = await r.json().catch(()=>({error:'Ошибка'})); showToast('error','Ошибка', d.error || ''); }
+        });
+
+        // Удаление из модалки
+        async function deleteEventConfirmed(){
+            const id = document.getElementById('edit-event-id').value;
+            if (!id) return;
+            if (!confirm('Удалить мероприятие?')) return;
+            const r = await fetch(`/api/events/${id}`, { method:'DELETE' });
+            if (r.ok) { showToast('success','Удалено',''); closeEditEventModal(); loadEventsData(); }
+            else showToast('error','Ошибка','Не удалось удалить');
         }
 
         // Загрузка напитков

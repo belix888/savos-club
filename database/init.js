@@ -112,11 +112,19 @@ db.serialize(() => {
       date DATETIME NOT NULL,
       price DECIMAL(10,2),
       image_url TEXT,
+      ticket_url TEXT,
       is_active BOOLEAN DEFAULT 1,
       created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
       updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
     )
   `);
+
+  // Миграция: добавляем ticket_url при необходимости
+  db.run('ALTER TABLE events ADD COLUMN ticket_url TEXT', (err) => {
+    if (err && !String(err.message).includes('duplicate column name')) {
+      console.warn('Migration: ticket_url add column warning:', err.message);
+    }
+  });
 
   // Таблица напитков (бар)
   db.run(`

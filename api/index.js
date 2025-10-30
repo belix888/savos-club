@@ -798,17 +798,32 @@ app.get('/api/events', (req, res) => {
   }
 });
 
+// Single event
+app.get('/api/events/:id', (req, res) => {
+  try {
+    const db = require('../database/init');
+    db.get('SELECT * FROM events WHERE id = ?', [req.params.id], (err, row) => {
+      if (err) return res.status(500).json({ error: 'Database error' });
+      if (!row) return res.status(404).json({ error: 'Not found' });
+      res.json(row);
+    });
+  } catch (error) {
+    console.error('❌ Error fetching event:', error);
+    res.status(500).json({ error: 'Internal server error' });
+  }
+});
+
 app.post('/api/events', (req, res) => {
   try {
-    const { title, description, date, price, image_url, is_active } = req.body;
+    const { title, description, date, price, image_url, ticket_url, is_active } = req.body;
     if (!title || !date) return res.status(400).json({ error: 'Title and date are required' });
     const db = require('../database/init');
     db.run(
-      'INSERT INTO events (title, description, date, price, image_url, is_active) VALUES (?, ?, ?, ?, ?, ?)',
-      [title, description || null, date, price || 0, image_url || null, is_active ? 1 : 1],
+      'INSERT INTO events (title, description, date, price, image_url, ticket_url, is_active) VALUES (?, ?, ?, ?, ?, ?, ?)',
+      [title, description || null, date, price || 0, image_url || null, ticket_url || null, is_active ? 1 : 1],
       function(err) {
         if (err) return res.status(500).json({ error: 'Database error' });
-        res.json({ id: this.lastID, title, description, date, price, image_url, is_active: is_active ? 1 : 1 });
+        res.json({ id: this.lastID, title, description, date, price, image_url, ticket_url, is_active: is_active ? 1 : 1 });
       }
     );
   } catch (error) {
@@ -820,11 +835,11 @@ app.post('/api/events', (req, res) => {
 app.put('/api/events/:id', (req, res) => {
   try {
     const { id } = req.params;
-    const { title, description, date, price, image_url, is_active } = req.body;
+    const { title, description, date, price, image_url, ticket_url, is_active } = req.body;
     const db = require('../database/init');
     db.run(
-      'UPDATE events SET title = ?, description = ?, date = ?, price = ?, image_url = ?, is_active = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?',
-      [title, description || null, date, price || 0, image_url || null, is_active ? 1 : 0, id],
+      'UPDATE events SET title = ?, description = ?, date = ?, price = ?, image_url = ?, ticket_url = ?, is_active = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?',
+      [title, description || null, date, price || 0, image_url || null, ticket_url || null, is_active ? 1 : 0, id],
       function(err) {
         if (err) return res.status(500).json({ error: 'Database error' });
         res.json({ status: 'success' });
