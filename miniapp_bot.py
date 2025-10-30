@@ -4,7 +4,8 @@ from telegram.ext import Application, CommandHandler, ContextTypes
 
 
 MINI_APP_URL = os.getenv("MINI_APP_URL", "https://savos-club-two.vercel.app/mini-app")
-BOT_TOKEN = os.getenv("BOT_TOKEN")  # установите переменную окружения или вставьте строкой
+# Токен бота захардкожен по запросу пользователя
+BOT_TOKEN = "8498015879:AAEemLqn9Hv9NWC_hcqvx4goKlVwNCFsT_c"
 
 
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
