@@ -256,6 +256,95 @@ app.post('/api/register', (req, res) => {
   }
 });
 
+// Public login endpoint (username + phone) – independent from Telegram
+app.post('/api/login', (req, res) => {
+  try {
+    const { username, phone } = req.body;
+    if (!username || !phone) {
+      return res.status(400).json({ error: 'Username и телефон обязательны' });
+    }
+    const phoneRegex = /^\+?7\d{10}$/;
+    let normalizedPhone = (phone || '').replace(/[\s\-()]/g, '');
+    if (normalizedPhone.startsWith('8')) {
+      normalizedPhone = '+7' + normalizedPhone.substring(1);
+    }
+    if (!phoneRegex.test(normalizedPhone)) {
+      return res.status(400).json({ error: 'Телефон в формате +79991234567 или 89991234567' });
+    }
+
+    const db = require('../database/init');
+    db.get('SELECT * FROM users WHERE username = ? AND phone = ?', [username, normalizedPhone], (err, user) => {
+      if (err) {
+        console.error('❌ Error during login:', err);
+        return res.status(500).json({ error: 'Ошибка базы данных' });
+      }
+      if (!user) {
+        return res.status(401).json({ error: 'Неверные данные для входа' });
+      }
+
+      const token = jwt.sign(
+        {
+          id: user.id,
+          username: user.username,
+          is_admin: !!user.is_admin,
+          is_super_admin: !!user.is_super_admin
+        },
+        process.env.JWT_SECRET || 'savosbot_club_super_secret_jwt_key_2024',
+        { expiresIn: '7d' }
+      );
+
+      res.json({
+        token,
+        user: {
+          id: user.id,
+          username: user.username,
+          first_name: user.first_name,
+          last_name: user.last_name,
+          phone: user.phone
+        }
+      });
+    });
+  } catch (error) {
+    console.error('❌ Error processing login:', error);
+    res.status(500).json({ error: 'Внутренняя ошибка сервера' });
+  }
+});
+
+// Session check endpoint: returns current user by JWT
+app.get('/api/session', (req, res) => {
+  try {
+    const auth = req.headers.authorization || '';
+    if (!auth.startsWith('Bearer ')) {
+      return res.status(401).json({ error: 'No token' });
+    }
+    const token = auth.substring(7);
+    let payload;
+    try {
+      payload = jwt.verify(token, process.env.JWT_SECRET || 'savosbot_club_super_secret_jwt_key_2024');
+    } catch (e) {
+      return res.status(401).json({ error: 'Invalid token' });
+    }
+    const db = require('../database/init');
+    db.get('SELECT * FROM users WHERE id = ?', [payload.id], (err, user) => {
+      if (err) return res.status(500).json({ error: 'Database error' });
+      if (!user) return res.status(404).json({ error: 'User not found' });
+      res.json({
+        user: {
+          id: user.id,
+          username: user.username,
+          first_name: user.first_name,
+          last_name: user.last_name,
+          phone: user.phone,
+          is_admin: !!user.is_admin,
+          is_super_admin: !!user.is_super_admin
+        }
+      });
+    });
+  } catch (error) {
+    console.error('❌ Error checking session:', error);
+    res.status(500).json({ error: 'Internal server error' });
+  }
+});
 // Users API endpoints
 app.post('/api/users', (req, res) => {
   try {

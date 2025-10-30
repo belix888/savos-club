@@ -365,8 +365,8 @@
         <!-- Registration form (shown if user not registered) -->
         <div class="registration-container" id="registrationContainer">
             <div class="header">
-                <h1>✨ Регистрация</h1>
-                <p>Заполните данные для доступа к клубу</p>
+                <h1>✨ Вход или регистрация</h1>
+                <p>Создайте аккаунт или войдите по username и телефону</p>
             </div>
             <div class="registration-form">
                 <div id="registrationError" style="display: none;" class="error"></div>
@@ -428,6 +428,22 @@
                         ✨ Зарегистрироваться
                     </button>
                 </form>
+                <hr style="margin:16px 0; border-color: rgba(255,255,255,0.1);">
+                <div class="form-group-reg">
+                    <label>Уже есть аккаунт?</label>
+                    <button id="loginToggleBtn" class="btn" style="width:100%; background:#3b82f6;">🔐 Войти</button>
+                </div>
+                <form id="loginForm" style="display:none; margin-top:10px;">
+                    <div class="form-group-reg">
+                        <label for="loginUsername">Telegram Username</label>
+                        <input type="text" id="loginUsername" placeholder="username (без @)" autocomplete="username">
+                    </div>
+                    <div class="form-group-reg">
+                        <label for="loginPhone">Телефон</label>
+                        <input type="tel" id="loginPhone" placeholder="+79991234567 или 89991234567" autocomplete="tel">
+                    </div>
+                    <button type="submit" class="btn" style="width:100%; background:#3b82f6;">Войти</button>
+                </form>
             </div>
         </div>
 
@@ -469,7 +485,7 @@
                             <span style="font-weight: 600;">Итого:</span>
                             <span id="total-amount" style="font-weight: 700; color: #ef4444; font-size: 20px;">0 ₽</span>
                         </div>
-                        <button class="btn" onclick="placeOrder()" style="width: 100%;">
+                        <button class="btn" onclick="placeOrder()" style="width: 100%;" id="placeOrderBtn">
                             🛒 Оформить заказ
                         </button>
                     </div>
@@ -526,44 +542,125 @@
         // Инициализация приложения
         async function initApp() {
             try {
-                // Загружаем сохраненные действия
                 loadUserActions();
-                
-                // Получаем данные пользователя из Telegram
-                const userData = tg.initDataUnsafe.user;
-                
-                if (userData) {
-                    // Авторизуемся через API
-                    const response = await fetch('/api/auth/telegram', {
-                        method: 'POST',
-                        headers: {
-                            'Content-Type': 'application/json',
-                        },
-                        body: JSON.stringify({
-                            telegram_id: userData.id,
-                            username: userData.username,
-                            first_name: userData.first_name,
-                            last_name: userData.last_name
-                        })
-                    });
 
-                    const authData = await response.json();
-                    authToken = authData.token;
-                    currentUser = authData.user;
-
-                    // Загружаем данные
-                    await loadEvents();
-                    await loadDrinks();
-                    await loadContests();
-                    await loadProfile();
-                    await loadOrders();
-                } else {
-                    showError('Ошибка авторизации. Попробуйте перезапустить приложение.');
+                // 1) Сессия по нашему токену
+                const savedToken = localStorage.getItem('miniapp_token');
+                if (savedToken) {
+                    const me = await fetch('/api/session', { headers: { 'Authorization': `Bearer ${savedToken}` } });
+                    if (me.ok) {
+                        const { user } = await me.json();
+                        authToken = savedToken;
+                        currentUser = user;
+                        showMainApp();
+                        await Promise.all([loadEvents(), loadDrinks(), loadContests(), loadProfile(), loadOrders()]);
+                        return;
+                    } else {
+                        localStorage.removeItem('miniapp_token');
+                    }
                 }
+
+                // 2) Пробуем авторизацию через Telegram при наличии
+                const tgUser = tg && tg.initDataUnsafe ? tg.initDataUnsafe.user : null;
+                if (tgUser) {
+                    try {
+                        const response = await fetch('/api/auth/telegram', {
+                            method: 'POST',
+                            headers: { 'Content-Type': 'application/json' },
+                            body: JSON.stringify({
+                                telegram_id: tgUser.id,
+                                username: tgUser.username,
+                                first_name: tgUser.first_name,
+                                last_name: tgUser.last_name
+                            })
+                        });
+                        if (response.ok) {
+                            const authData = await response.json();
+                            authToken = authData.token;
+                            currentUser = authData.user;
+                            localStorage.setItem('miniapp_token', authToken);
+                            showMainApp();
+                            await Promise.all([loadEvents(), loadDrinks(), loadContests(), loadProfile(), loadOrders()]);
+                            return;
+                        }
+                    } catch (e) { /* ignore */ }
+                }
+
+                // 3) Показать экран регистрации/входа
+                document.getElementById('registrationContainer').style.display = 'block';
+                document.getElementById('mainApp').style.display = 'none';
             } catch (error) {
                 console.error('Ошибка инициализации:', error);
                 showError('Ошибка загрузки данных');
             }
+        }
+
+        // Обработчики регистрации/входа
+        document.addEventListener('DOMContentLoaded', () => {
+            const loginToggleBtn = document.getElementById('loginToggleBtn');
+            const loginForm = document.getElementById('loginForm');
+            const regForm = document.getElementById('registrationForm');
+            const regError = document.getElementById('registrationError');
+
+            if (loginToggleBtn && loginForm) {
+                loginToggleBtn.addEventListener('click', (e) => {
+                    e.preventDefault();
+                    loginForm.style.display = loginForm.style.display === 'none' ? 'block' : 'none';
+                });
+            }
+
+            if (regForm) {
+                regForm.addEventListener('submit', async (e) => {
+                    e.preventDefault();
+                    regError.style.display = 'none';
+                    const payload = {
+                        username: document.getElementById('regUsername').value.trim(),
+                        first_name: document.getElementById('regFirstName').value.trim(),
+                        last_name: document.getElementById('regLastName').value.trim(),
+                        phone: document.getElementById('regPhone').value.trim()
+                    };
+                    try {
+                        const r = await fetch('/api/register', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify(payload)});
+                        const d = await r.json();
+                        if (!r.ok) throw new Error(d.error || 'Ошибка регистрации');
+                        // После регистрации сразу выполняем вход
+                        const lr = await fetch('/api/login', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ username: payload.username, phone: payload.phone })});
+                        const ld = await lr.json();
+                        if (!lr.ok) throw new Error(ld.error || 'Ошибка входа');
+                        authToken = ld.token; currentUser = ld.user; localStorage.setItem('miniapp_token', authToken);
+                        showMainApp(); await Promise.all([loadEvents(), loadDrinks(), loadContests(), loadProfile(), loadOrders()]);
+                    } catch (err) {
+                        regError.textContent = err.message;
+                        regError.style.display = 'block';
+                    }
+                });
+            }
+
+            if (loginForm) {
+                loginForm.addEventListener('submit', async (e) => {
+                    e.preventDefault();
+                    regError.style.display = 'none';
+                    try {
+                        const payload = {
+                            username: document.getElementById('loginUsername').value.trim(),
+                            phone: document.getElementById('loginPhone').value.trim()
+                        };
+                        const r = await fetch('/api/login', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify(payload)});
+                        const d = await r.json();
+                        if (!r.ok) throw new Error(d.error || 'Ошибка входа');
+                        authToken = d.token; currentUser = d.user; localStorage.setItem('miniapp_token', authToken);
+                        showMainApp(); await Promise.all([loadEvents(), loadDrinks(), loadContests(), loadProfile(), loadOrders()]);
+                    } catch (err) {
+                        regError.textContent = err.message;
+                        regError.style.display = 'block';
+                    }
+                });
+            }
+        });
+
+        function showMainApp(){
+            document.getElementById('registrationContainer').style.display = 'none';
+            document.getElementById('mainApp').style.display = 'block';
         }
 
         // Загрузка мероприятий
@@ -622,6 +719,16 @@
                 console.error('Ошибка загрузки мероприятий:', error);
                 document.getElementById('events-list').innerHTML = '<div class="error">Ошибка загрузки мероприятий</div>';
             }
+        }
+
+        // Защита действий без сессии
+        function ensureAuthOrShowLogin(){
+            if (!authToken || !currentUser) {
+                document.getElementById('registrationContainer').style.display = 'block';
+                document.getElementById('mainApp').style.display = 'none';
+                return false;
+            }
+            return true;
         }
 
         // Загрузка напитков
@@ -754,6 +861,7 @@
         // Оформление заказа
         async function placeOrder() {
             try {
+                if (!ensureAuthOrShowLogin()) return;
                 const items = Object.entries(cart).map(([drinkId, quantity]) => ({
                     drink_id: parseInt(drinkId),
                     quantity: quantity
