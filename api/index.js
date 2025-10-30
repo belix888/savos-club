@@ -313,10 +313,16 @@ app.post('/api/login', (req, res) => {
       })();
 
       if (!ok) {
-        console.log('❌ Login failed: phone mismatch or missing');
-        return res.status(401).json({ error: 'Неверные данные для входа' });
+        console.log('❌ Login failed: phone mismatch or missing', {
+          userPhone,
+          normalizedPhone,
+          providedPhone: phone
+        });
+        return res.status(401).json({ 
+          error: 'Неверные данные для входа. Проверьте username и номер телефона.' 
+        });
       }
-      console.log('✅ Login successful for user:', user.id);
+      console.log('✅ Login successful for user:', user.id, user.username);
 
       const bindPhoneIfMissing = () => new Promise((resolve) => {
         if (!userPhone && normalizedPhone) {
@@ -347,7 +353,15 @@ app.post('/api/login', (req, res) => {
             username: user.username,
             first_name: user.first_name,
             last_name: user.last_name,
-            phone: normalizedPhone || user.phone || null
+            phone: normalizedPhone || user.phone || null,
+            photo_url: user.photo_url || null,
+            profile_link: user.profile_link || null,
+            chips: parseFloat(user.chips || 0),
+            is_resident: !!user.is_resident,
+            is_waiter: !!user.is_waiter,
+            is_admin: !!user.is_admin,
+            is_super_admin: !!user.is_super_admin,
+            is_bartender: !!user.is_bartender
           }
         });
       });

@@ -472,11 +472,12 @@
                 <form id="loginForm" style="display:none; margin-top:10px;">
                     <div class="form-group-reg">
                         <label for="loginUsername">Telegram Username</label>
-                        <input type="text" id="loginUsername" placeholder="username (без @)" autocomplete="username">
+                        <input type="text" id="loginUsername" placeholder="username (без @)" autocomplete="username" required>
                     </div>
                     <div class="form-group-reg">
                         <label for="loginPhone">Телефон</label>
                         <input type="tel" id="loginPhone" placeholder="+79991234567 или 89991234567" autocomplete="tel">
+                        <small style="color: rgba(255,255,255,0.6); font-size: 12px; display: block; margin-top: 5px;">Необязательно, если не был указан при регистрации</small>
                     </div>
                     <button type="submit" class="btn" style="width:100%; background:#3b82f6;">Войти</button>
                 </form>
@@ -869,18 +870,53 @@
                     regError.style.display = 'none';
                     showLoader();
                     try {
+                        // Получаем значения из формы
+                        let username = document.getElementById('loginUsername').value.trim();
+                        let phone = document.getElementById('loginPhone').value.trim();
+                        
+                        // Убираем @ из username, если есть
+                        if (username.startsWith('@')) {
+                            username = username.substring(1);
+                        }
+                        
+                        if (!username) {
+                            throw new Error('Укажите Telegram username');
+                        }
+                        
                         const payload = {
-                            username: document.getElementById('loginUsername').value.trim(),
-                            phone: document.getElementById('loginPhone').value.trim()
+                            username: username,
+                            phone: phone
                         };
-                        const r = await fetch('/api/login', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify(payload)});
+                        
+                        console.log('🔐 Попытка входа:', { username, phone: phone ? '***' : 'не указан' });
+                        
+                        const r = await fetch('/api/login', { 
+                            method:'POST', 
+                            headers:{'Content-Type':'application/json'}, 
+                            body: JSON.stringify(payload)
+                        });
+                        
                         const d = await r.json();
-                        if (!r.ok) throw new Error(d.error || 'Ошибка входа');
-                        authToken = d.token; currentUser = d.user; localStorage.setItem('miniapp_token', authToken);
-                        showMainApp(); await Promise.all([loadEvents(), loadDrinks(), loadContests(), loadProfile(), loadOrders()]);
+                        
+                        if (!r.ok) {
+                            console.error('❌ Ошибка входа:', d);
+                            throw new Error(d.error || 'Ошибка входа');
+                        }
+                        
+                        console.log('✅ Вход успешен:', { user_id: d.user?.id, username: d.user?.username });
+                        
+                        // Сохраняем токен и данные пользователя
+                        authToken = d.token;
+                        currentUser = d.user;
+                        localStorage.setItem('miniapp_token', authToken);
+                        
+                        // Показываем основное приложение и загружаем данные
+                        showMainApp();
+                        await Promise.all([loadEvents(), loadDrinks(), loadContests(), loadProfile(), loadOrders()]);
                         hideLoader();
                     } catch (err) {
-                        regError.textContent = err.message;
+                        console.error('❌ Ошибка входа:', err);
+                        regError.textContent = err.message || 'Ошибка входа. Проверьте данные и попробуйте снова.';
                         regError.style.display = 'block';
                         hideLoader();
                     }
