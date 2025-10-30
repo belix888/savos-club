@@ -469,7 +469,7 @@
                     <form id="create-drink-form" class="ap-form" style="display:grid;grid-template-columns:repeat(auto-fit,minmax(160px,1fr));gap:10px;margin-bottom:15px;">
                         <input type="text" id="drink-name" placeholder="Название" required>
                         <input type="text" id="drink-category" placeholder="Категория">
-                        <input type="number" id="drink-price" placeholder="Цена, ₽" required min="0" step="1">
+                        <input type="number" id="drink-price" placeholder="Цена, фиш." required min="0" step="1">
                         <input type="url" id="drink-image" placeholder="Ссылка на изображение (опц.)">
                         <button class="btn" type="submit">➕ Добавить</button>
                     </form>
@@ -1115,6 +1115,19 @@
             const res = await fetch('/api/drinks', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify(payload)});
             if (res.ok) { showToast('success','Напиток добавлен',''); (e.target).reset(); loadDrinksData(); } else { const d = await res.json().catch(()=>({error:'Ошибка'})); showToast('error','Ошибка', d.error || ''); }
         });
+
+        // Динамически меняем подпись валюты для коктейлей
+        (function initDrinkPricePlaceholder(){
+            const cat = document.getElementById('drink-category');
+            const price = document.getElementById('drink-price');
+            if (!cat || !price) return;
+            const update = () => {
+                const isCocktail = (cat.value || '').toLowerCase().includes('коктейл');
+                price.placeholder = isCocktail ? 'Цена, фиш.' : 'Цена, ₽';
+            };
+            cat.addEventListener('input', update);
+            update();
+        })();
 
         async function toggleDrink(id){ const r = await fetch(`/api/drinks/${id}/toggle`, { method:'PATCH' }); if (r.ok) loadDrinksData(); else showToast('error','Ошибка','Не удалось изменить доступность'); }
 
