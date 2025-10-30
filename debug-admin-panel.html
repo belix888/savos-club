@@ -1,0 +1,32 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Debug Admin Panel</title>
+</head>
+<body>
+    <div style="padding: 20px;">
+        <h1>🧪 Тестовая страница</h1>
+        <button onclick="testFunction()">Тест 1</button>
+        <button id="test2">Тест 2</button>
+    </div>
+
+    <script>
+        console.log('✅ Скрипт загружен');
+        
+        function testFunction() {
+            alert('Функция работает!');
+        }
+        
+        document.addEventListener('DOMContentLoaded', function() {
+            console.log('✅ DOM готов');
+            document.getElementById('test2').addEventListener('click', function() {
+                alert('Кнопка работает!');
+            });
+        });
+    </script>
+</body>
+</html>
+
+

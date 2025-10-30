@@ -1,3 +1,20 @@
+Website-native auth for the mini-app
+
+Endpoints
+- POST /api/register — create user with username, first_name, last_name, phone
+- POST /api/login — login with username + phone, returns JWT
+- GET /api/session — validate JWT and return current user
+
+Mini-app
+- On load: if token in localStorage → /api/session; else try Telegram auth; else show registration/login
+- Registration auto-logs in and saves token to localStorage
+- All actions check token; orders, profile load use Authorization: Bearer <token>
+
+Database
+- users(username UNIQUE, phone, telegram_id nullable)
+
+Env
+- JWT_SECRET — secret for tokens
 # 🌐 Регистрация на сайте через Telegram Username
 
 ## 📋 Обзор

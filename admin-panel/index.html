@@ -366,6 +366,7 @@
             <div class="nav-tab" data-tab="contests">🏆 Конкурсы</div>
             <div class="nav-tab" data-tab="waiters">🍽️ Официанты</div>
             <div class="nav-tab" data-tab="chips-logs">🎰 Логи фишек</div>
+            <div class="nav-tab" data-tab="waiter-actions-logs">👔 Логи официантов</div>
             <div class="nav-tab" data-tab="super-admin">🔐 Супер-админ</div>
         </div>
 
@@ -545,6 +546,18 @@
                         <button type="submit" class="btn">✅ Начислить фишки</button>
                     </form>
                     <div id="add-chips-status" style="margin-top: 10px;"></div>
+                </div>
+            </div>
+
+            <div id="waiter-actions-logs" class="tab-content">
+                <div class="card">
+                    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:15px;gap:10px;flex-wrap:wrap;">
+                        <h3 style="margin:0;">👔 Логи действий официантов</h3>
+                        <button class="btn btn-secondary" onclick="loadWaiterActionsLogs()">🔃 Обновить</button>
+                    </div>
+                    <div id="waiter-actions-logs-list">
+                        <div class="loading">Загрузка логов...</div>
+                    </div>
                 </div>
             </div>
 
@@ -740,6 +753,10 @@
 
         // Функция переключения вкладок
         function switchTab(tabName) {
+            // Загружаем данные при переключении на соответствующую вкладку
+            if (tabName === 'waiter-actions-logs') {
+                loadWaiterActionsLogs();
+            }
             console.log('🔥 Переключение на вкладку:', tabName);
             
             // Убираем активный класс
@@ -1332,6 +1349,76 @@
             } catch (e) {
                 console.error('Ошибка загрузки логов фишек:', e);
                 document.getElementById('chips-logs-list').innerHTML = '<div class="error">Ошибка загрузки логов</div>';
+            }
+        }
+
+        // Загрузка логов действий официантов
+        async function loadWaiterActionsLogs() {
+            try {
+                const token = localStorage.getItem('adminToken');
+                if (!token) {
+                    document.getElementById('waiter-actions-logs-list').innerHTML = '<div class="error">Необходима авторизация</div>';
+                    return;
+                }
+                
+                const r = await fetch('/api/waiters/actions/logs', {
+                    headers: {
+                        'Authorization': `Bearer ${token}`
+                    }
+                });
+                
+                if (!r.ok) {
+                    const err = await r.json().catch(() => ({ error: 'Ошибка загрузки' }));
+                    showToast('error', 'Ошибка', err.error || 'Не удалось загрузить логи');
+                    document.getElementById('waiter-actions-logs-list').innerHTML = '<div class="error">Ошибка загрузки логов</div>';
+                    return;
+                }
+                
+                const data = await r.json();
+                const logs = data.logs || [];
+                const container = document.getElementById('waiter-actions-logs-list');
+                
+                if (logs.length === 0) {
+                    container.innerHTML = '<p style="text-align:center;color:rgba(255,255,255,0.7);">Нет записей в логах</p>';
+                    return;
+                }
+                
+                const actionTypeLabels = {
+                    'shift_start': '▶️ Начало смены',
+                    'shift_end': '⏹️ Конец смены',
+                    'order_taken': '✋ Взятие заказа',
+                    'order_completed': '✅ Завершение заказа'
+                };
+                
+                container.innerHTML = `
+                    <table style="width: 100%; border-collapse: collapse;">
+                        <thead>
+                            <tr style="background: rgba(255,255,255,0.1);">
+                                <th style="padding: 10px; text-align: left;">Дата</th>
+                                <th style="padding: 10px; text-align: left;">Официант</th>
+                                <th style="padding: 10px; text-align: left;">Действие</th>
+                                <th style="padding: 10px; text-align: left;">Заказ</th>
+                                <th style="padding: 10px; text-align: left;">Описание</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            ${logs.map(log => `
+                                <tr style="border-bottom: 1px solid rgba(255,255,255,0.1);">
+                                    <td style="padding: 10px; color: rgba(255,255,255,0.8);">${new Date(log.created_at).toLocaleString('ru-RU')}</td>
+                                    <td style="padding: 10px; color: #60a5fa;">${log.waiter.full_name || `ID: ${log.waiter.id}`}</td>
+                                    <td style="padding: 10px; color: #ef4444; font-weight: 600;">${actionTypeLabels[log.action_type] || log.action_type}</td>
+                                    <td style="padding: 10px; color: rgba(255,255,255,0.8);">
+                                        ${log.order ? `#${log.order.id} (${log.order.total_amount} фиш., код: ${log.order.confirmation_code || '-'})` : '-'}
+                                    </td>
+                                    <td style="padding: 10px; color: rgba(255,255,255,0.7);">${log.description || '-'}</td>
+                                </tr>
+                            `).join('')}
+                        </tbody>
+                    </table>
+                `;
+            } catch (e) {
+                console.error('Ошибка загрузки логов официантов:', e);
+                document.getElementById('waiter-actions-logs-list').innerHTML = '<div class="error">Ошибка загрузки логов</div>';
             }
         }
 

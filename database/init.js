@@ -264,6 +264,34 @@ db.serialize(() => {
     )
   `);
 
+  // Таблица логов заказов (с данными о покупателе и покупке)
+  db.run(`
+    CREATE TABLE IF NOT EXISTS order_logs (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      order_id INTEGER NOT NULL,
+      user_id INTEGER NOT NULL,
+      total_amount DECIMAL(10,2) NOT NULL,
+      items_count INTEGER NOT NULL,
+      created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+      FOREIGN KEY (order_id) REFERENCES orders (id),
+      FOREIGN KEY (user_id) REFERENCES users (id)
+    )
+  `);
+
+  // Таблица логов действий официантов
+  db.run(`
+    CREATE TABLE IF NOT EXISTS waiter_actions_logs (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      waiter_id INTEGER NOT NULL,
+      action_type TEXT NOT NULL,
+      order_id INTEGER,
+      description TEXT,
+      created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+      FOREIGN KEY (waiter_id) REFERENCES users (id),
+      FOREIGN KEY (order_id) REFERENCES orders (id)
+    )
+  `);
+
   // Вставка начальных данных
   db.run(`
     INSERT OR IGNORE INTO settings (key, value, description) VALUES 

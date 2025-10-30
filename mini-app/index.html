@@ -495,6 +495,7 @@
             <div class="nav-tab active" data-tab="events">📅 Афиша</div>
             <div class="nav-tab" data-tab="bar">🍸 Бар</div>
             <div class="nav-tab" data-tab="contests">🏆 Конкурсы</div>
+            <div class="nav-tab" id="waiter-tab" data-tab="waiter" style="display: none;">🍽️ Официант</div>
             <div class="nav-tab" data-tab="profile">👤 Профиль</div>
         </div>
 
@@ -535,6 +536,45 @@
                     <h3>🏆 Активные конкурсы</h3>
                     <div id="contests-list">
                         <div class="loading">Загрузка конкурсов...</div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Официант -->
+            <div id="waiter" class="tab-content">
+                <div class="card">
+                    <h3>🍽️ Панель официанта</h3>
+                    <div id="waiter-shift-control" style="margin-bottom: 20px;">
+                        <div id="waiter-shift-status" style="padding: 15px; background: rgba(255,255,255,0.05); border-radius: 10px; margin-bottom: 15px;">
+                            <div style="display: flex; justify-content: space-between; align-items: center;">
+                                <div>
+                                    <div style="font-weight: 600; color: #ef4444; margin-bottom: 5px;">Статус смены</div>
+                                    <div id="shift-status-text" style="color: rgba(255,255,255,0.7);">Проверка...</div>
+                                </div>
+                                <div id="shift-status-badge" style="padding: 6px 12px; border-radius: 8px; font-size: 12px; font-weight: 600;">
+                                    -
+                                </div>
+                            </div>
+                        </div>
+                        <div id="waiter-shift-buttons" style="display: flex; gap: 10px;">
+                            <button class="btn" id="start-shift-btn" onclick="startWaiterShift()" style="flex: 1;">
+                                ▶️ Начать смену
+                            </button>
+                            <button class="btn btn-secondary" id="end-shift-btn" onclick="endWaiterShift()" style="flex: 1; display: none;">
+                                ⏹️ Завершить смену
+                            </button>
+                        </div>
+                    </div>
+                    
+                    <div id="waiter-orders-section" style="display: none;">
+                        <h4 style="color: #ef4444; margin-bottom: 15px; margin-top: 20px;">📋 Новые заказы</h4>
+                        <div id="waiter-orders-list">
+                            <div class="loading">Загрузка заказов...</div>
+                        </div>
+                    </div>
+                    
+                    <div id="waiter-not-on-shift" style="text-align: center; padding: 30px; color: rgba(255,255,255,0.6);">
+                        <p>Начните смену, чтобы получать заказы</p>
                     </div>
                 </div>
             </div>
@@ -738,6 +778,9 @@
                                 currentUser = data.user;
                                 showMainApp();
                                 await Promise.all([loadEvents(), loadDrinks(), loadContests(), loadProfile(), loadOrders()]);
+                                if (currentUser && currentUser.is_waiter) {
+                                    checkWaiterShift();
+                                }
                                 hideLoader();
                                 return;
                             }
@@ -1418,6 +1461,14 @@
                         </div>
                     </div>
                 `;
+                
+                // Обновляем видимость вкладки официанта
+                updateWaiterTabVisibility();
+                
+                // Если пользователь - официант, запускаем автообновление заказов
+                if (user.is_waiter) {
+                    startWaiterOrdersAutoRefresh();
+                }
             } catch (error) {
                 console.error('Ошибка загрузки профиля:', error);
                 document.getElementById('profile-info').innerHTML = '<div class="error">Ошибка загрузки профиля</div>';
@@ -1480,7 +1531,367 @@
 
         // Показать ошибку
         function showError(message) {
-            tg.showAlert(message);
+            if (tg && tg.showAlert) {
+                tg.showAlert(message);
+            } else {
+                alert(message);
+            }
+        }
+
+        // Функции для официантов
+        // Показать вкладку официанта, если пользователь является официантом
+        function updateWaiterTabVisibility() {
+            const waiterTab = document.getElementById('waiter-tab');
+            if (waiterTab && currentUser && currentUser.is_waiter) {
+                waiterTab.style.display = 'block';
+            } else if (waiterTab) {
+                waiterTab.style.display = 'none';
+            }
+        }
+
+        // Проверка статуса смены официанта
+        async function checkWaiterShift() {
+            if (!currentUser || !currentUser.is_waiter || !authToken) {
+                updateWaiterTabVisibility();
+                return;
+            }
+
+            try {
+                // Проверяем через API waiters, есть ли активная смена
+                const response = await fetch(`/api/waiters/${currentUser.id}`);
+                if (response.ok) {
+                    const data = await response.json();
+                    const activeShift = data.shifts && data.shifts.find(s => !s.end_time && s.status === 'working');
+                    
+                    const statusText = document.getElementById('shift-status-text');
+                    const statusBadge = document.getElementById('shift-status-badge');
+                    const startBtn = document.getElementById('start-shift-btn');
+                    const endBtn = document.getElementById('end-shift-btn');
+                    const ordersSection = document.getElementById('waiter-orders-section');
+                    const notOnShift = document.getElementById('waiter-not-on-shift');
+
+                    if (activeShift) {
+                        const startTime = new Date(activeShift.start_time);
+                        statusText.textContent = `Смена начата: ${startTime.toLocaleString('ru-RU')}`;
+                        statusBadge.textContent = '🟢 На смене';
+                        statusBadge.style.background = '#22c55e';
+                        startBtn.style.display = 'none';
+                        endBtn.style.display = 'block';
+                        ordersSection.style.display = 'block';
+                        notOnShift.style.display = 'none';
+                        loadWaiterOrders();
+                    } else {
+                        statusText.textContent = 'Смена не начата';
+                        statusBadge.textContent = '⚫ Не на смене';
+                        statusBadge.style.background = '#6b7280';
+                        startBtn.style.display = 'block';
+                        endBtn.style.display = 'none';
+                        ordersSection.style.display = 'none';
+                        notOnShift.style.display = 'block';
+                    }
+                }
+            } catch (error) {
+                console.error('Ошибка проверки смены:', error);
+            }
+            
+            updateWaiterTabVisibility();
+        }
+
+        // Начать смену
+        async function startWaiterShift() {
+            if (!authToken) {
+                showError('Необходима авторизация');
+                return;
+            }
+
+            try {
+                const response = await fetch('/api/waiters/shift/start', {
+                    method: 'POST',
+                    headers: {
+                        'Authorization': `Bearer ${authToken}`
+                    }
+                });
+
+                const data = await response.json();
+                if (response.ok) {
+                    if (tg && tg.showAlert) {
+                        tg.showAlert('✅ Смена начата! Теперь вы будете получать заказы.');
+                    }
+                    checkWaiterShift();
+                } else {
+                    showError(data.error || 'Ошибка начала смены');
+                }
+            } catch (error) {
+                console.error('Ошибка начала смены:', error);
+                showError('Ошибка начала смены');
+            }
+        }
+
+        // Завершить смену
+        async function endWaiterShift() {
+            if (!authToken) {
+                showError('Необходима авторизация');
+                return;
+            }
+
+            if (!confirm('Вы уверены, что хотите завершить смену?')) {
+                return;
+            }
+
+            try {
+                const response = await fetch('/api/waiters/shift/end', {
+                    method: 'POST',
+                    headers: {
+                        'Authorization': `Bearer ${authToken}`
+                    }
+                });
+
+                const data = await response.json();
+                if (response.ok) {
+                    if (tg && tg.showAlert) {
+                        tg.showAlert('✅ Смена завершена');
+                    }
+                    checkWaiterShift();
+                    document.getElementById('waiter-orders-list').innerHTML = '<div class="loading">Загрузка заказов...</div>';
+                } else {
+                    showError(data.error || 'Ошибка завершения смены');
+                }
+            } catch (error) {
+                console.error('Ошибка завершения смены:', error);
+                showError('Ошибка завершения смены');
+            }
+        }
+
+        // Загрузить заказы для официанта
+        async function loadWaiterOrders() {
+            if (!authToken) return;
+
+            try {
+                const response = await fetch('/api/waiters/orders', {
+                    headers: {
+                        'Authorization': `Bearer ${authToken}`
+                    }
+                });
+
+                if (!response.ok) {
+                    const error = await response.json();
+                    document.getElementById('waiter-orders-list').innerHTML = `<div class="error">${error.error || 'Ошибка загрузки заказов'}</div>`;
+                    return;
+                }
+
+                const orders = await response.json();
+                const ordersList = document.getElementById('waiter-orders-list');
+
+                if (!orders || orders.length === 0) {
+                    ordersList.innerHTML = '<p style="text-align: center; color: rgba(255,255,255,0.7);">Нет новых заказов</p>';
+                    return;
+                }
+
+                ordersList.innerHTML = orders.map(order => `
+                    <div class="order-card" style="background: rgba(255,255,255,0.05); padding: 15px; border-radius: 12px; margin-bottom: 15px; cursor: pointer;" onclick="openWaiterOrderModal(${order.id})">
+                        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px;">
+                            <div>
+                                <div style="font-weight: 600; color: #ef4444; font-size: 18px;">Заказ #${order.id}</div>
+                                <div style="color: rgba(255,255,255,0.7); font-size: 14px;">
+                                    ${order.user_first_name || ''} ${order.user_last_name || ''} ${order.user_username ? '@' + order.user_username : ''}
+                                </div>
+                            </div>
+                            <span style="font-weight: 700; color: #22c55e; font-size: 16px;">${order.total_amount} фиш.</span>
+                        </div>
+                        <div style="color: rgba(255,255,255,0.8); margin-bottom: 10px; font-size: 14px;">
+                            ${order.items_text || 'Нет позиций'}
+                        </div>
+                        <div style="display: flex; justify-content: space-between; align-items: center;">
+                            <span style="color: rgba(255,255,255,0.6); font-size: 12px;">
+                                📅 ${new Date(order.created_at).toLocaleString('ru-RU')}
+                            </span>
+                            <button class="btn" style="padding: 8px 16px; font-size: 14px;" onclick="event.stopPropagation(); takeOrder(${order.id})">
+                                ✋ Взять заказ
+                            </button>
+                        </div>
+                    </div>
+                `).join('');
+            } catch (error) {
+                console.error('Ошибка загрузки заказов для официанта:', error);
+                document.getElementById('waiter-orders-list').innerHTML = '<div class="error">Ошибка загрузки заказов</div>';
+            }
+        }
+
+        // Взять заказ в работу
+        async function takeOrder(orderId) {
+            if (!authToken) {
+                showError('Необходима авторизация');
+                return;
+            }
+
+            try {
+                const response = await fetch(`/api/orders/${orderId}/take`, {
+                    method: 'POST',
+                    headers: {
+                        'Authorization': `Bearer ${authToken}`
+                    }
+                });
+
+                const data = await response.json();
+                if (response.ok) {
+                    if (tg && tg.showAlert) {
+                        tg.showAlert('✅ Заказ взят в работу');
+                    }
+                    loadWaiterOrders();
+                } else {
+                    showError(data.error || 'Ошибка взятия заказа');
+                }
+            } catch (error) {
+                console.error('Ошибка взятия заказа:', error);
+                showError('Ошибка взятия заказа');
+            }
+        }
+
+        // Открыть модалку с деталями заказа
+        async function openWaiterOrderModal(orderId) {
+            if (!authToken) return;
+
+            try {
+                const response = await fetch(`/api/waiters/orders/${orderId}`, {
+                    headers: {
+                        'Authorization': `Bearer ${authToken}`
+                    }
+                });
+
+                if (!response.ok) {
+                    const error = await response.json();
+                    showError(error.error || 'Ошибка загрузки заказа');
+                    return;
+                }
+
+                const order = await response.json();
+
+                // Создаем модалку с деталями заказа
+                const modal = document.createElement('div');
+                modal.id = 'waiter-order-modal';
+                modal.style.cssText = 'position: fixed; inset: 0; background: rgba(0,0,0,0.7); z-index: 9998; display: flex; align-items: center; justify-content: center; padding: 20px;';
+                modal.onclick = function(e) {
+                    if (e.target === modal) {
+                        document.body.removeChild(modal);
+                    }
+                };
+
+                modal.innerHTML = `
+                    <div style="background: #2a262b; border-radius: 16px; padding: 20px; max-width: 500px; width: 100%; max-height: 90vh; overflow-y: auto; position: relative;" onclick="event.stopPropagation();">
+                        <button onclick="document.body.removeChild(document.getElementById('waiter-order-modal'))" style="position: absolute; top: 15px; right: 15px; background: transparent; border: none; color: #fff; font-size: 24px; cursor: pointer; width: 32px; height: 32px; display: flex; align-items: center; justify-content: center; border-radius: 50%; background: rgba(255,255,255,0.1);">×</button>
+                        
+                        <h3 style="color: #ef4444; margin-bottom: 20px; margin-top: 0;">Заказ #${order.id}</h3>
+                        
+                        <!-- Информация о покупателе -->
+                        <div style="background: rgba(255,255,255,0.05); padding: 15px; border-radius: 10px; margin-bottom: 15px;">
+                            <h4 style="color: #60a5fa; margin-bottom: 10px; margin-top: 0;">👤 Покупатель</h4>
+                            ${order.user_photo_url ? `<img src="${order.user_photo_url}" alt="Фото" style="width: 60px; height: 60px; border-radius: 50%; margin-bottom: 10px; object-fit: cover;">` : ''}
+                            <div style="color: rgba(255,255,255,0.9); margin-bottom: 5px;">
+                                <strong>Имя:</strong> ${order.user_first_name || ''} ${order.user_last_name || ''}
+                            </div>
+                            ${order.user_username ? `<div style="color: rgba(255,255,255,0.8); margin-bottom: 5px;"><strong>Username:</strong> @${order.user_username}</div>` : ''}
+                            ${order.user_phone ? `<div style="color: rgba(255,255,255,0.8);"><strong>Телефон:</strong> ${order.user_phone}</div>` : ''}
+                        </div>
+
+                        <!-- Позиции заказа -->
+                        <div style="background: rgba(255,255,255,0.05); padding: 15px; border-radius: 10px; margin-bottom: 15px;">
+                            <h4 style="color: #60a5fa; margin-bottom: 15px; margin-top: 0;">📋 Позиции заказа</h4>
+                            ${(order.items || []).map(item => `
+                                <div style="display: flex; justify-content: space-between; padding: 10px 0; border-bottom: 1px solid rgba(255,255,255,0.1);">
+                                    <div>
+                                        <div style="font-weight: 600; color: rgba(255,255,255,0.9);">${item.drink_name || 'Напиток #' + item.drink_id}</div>
+                                        <div style="color: rgba(255,255,255,0.7); font-size: 14px;">×${item.quantity} × ${item.price} фиш. = ${item.quantity * item.price} фиш.</div>
+                                    </div>
+                                </div>
+                            `).join('')}
+                            <div style="margin-top: 15px; padding-top: 15px; border-top: 2px solid rgba(255,255,255,0.2);">
+                                <div style="display: flex; justify-content: space-between; align-items: center;">
+                                    <span style="font-weight: 600; color: rgba(255,255,255,0.9);">Итого:</span>
+                                    <span style="font-weight: 700; color: #22c55e; font-size: 20px;">${order.total_amount} фиш.</span>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Код подтверждения -->
+                        ${order.confirmation_code ? `
+                            <div style="background: rgba(34,197,94,0.2); border: 1px solid rgba(34,197,94,0.5); padding: 15px; border-radius: 10px; margin-bottom: 15px;">
+                                <div style="color: #22c55e; font-weight: 600; margin-bottom: 10px;">🔑 Код подтверждения</div>
+                                <div style="font-family: monospace; color: #fff; font-size: 24px; font-weight: 700; text-align: center; letter-spacing: 4px;">${order.confirmation_code}</div>
+                            </div>
+                        ` : ''}
+
+                        <!-- Дата создания -->
+                        <div style="color: rgba(255,255,255,0.7); font-size: 14px; margin-bottom: 20px;">
+                            📅 ${new Date(order.created_at).toLocaleString('ru-RU')}
+                        </div>
+
+                        <!-- Кнопки действий -->
+                        <div style="display: flex; gap: 10px;">
+                            ${order.status === 'new' ? `
+                                <button class="btn" onclick="takeOrder(${order.id}); document.body.removeChild(document.getElementById('waiter-order-modal'));" style="flex: 1;">
+                                    ✋ Взять в работу
+                                </button>
+                            ` : order.status === 'taken' && order.waiter_id === currentUser.id ? `
+                                <button class="btn" onclick="completeOrder(${order.id}); document.body.removeChild(document.getElementById('waiter-order-modal'));" style="flex: 1; background: #22c55e;">
+                                    ✅ Завершить заказ
+                                </button>
+                            ` : `
+                                <div style="color: rgba(255,255,255,0.7); text-align: center; flex: 1;">Заказ ${order.status === 'taken' ? 'взят другим официантом' : 'завершен'}</div>
+                            `}
+                        </div>
+                    </div>
+                `;
+
+                document.body.appendChild(modal);
+            } catch (error) {
+                console.error('Ошибка открытия заказа:', error);
+                showError('Ошибка загрузки заказа');
+            }
+        }
+
+        // Завершить заказ
+        async function completeOrder(orderId) {
+            if (!authToken) {
+                showError('Необходима авторизация');
+                return;
+            }
+
+            try {
+                const response = await fetch(`/api/orders/${orderId}/complete`, {
+                    method: 'POST',
+                    headers: {
+                        'Authorization': `Bearer ${authToken}`
+                    }
+                });
+
+                const data = await response.json();
+                if (response.ok) {
+                    if (tg && tg.showAlert) {
+                        tg.showAlert('✅ Заказ завершен');
+                    }
+                    loadWaiterOrders();
+                } else {
+                    showError(data.error || 'Ошибка завершения заказа');
+                }
+            } catch (error) {
+                console.error('Ошибка завершения заказа:', error);
+                showError('Ошибка завершения заказа');
+            }
+        }
+
+        // Автообновление заказов каждые 30 секунд, если официант на смене
+        let waiterOrdersInterval = null;
+        function startWaiterOrdersAutoRefresh() {
+            if (waiterOrdersInterval) clearInterval(waiterOrdersInterval);
+            waiterOrdersInterval = setInterval(() => {
+                if (currentUser && currentUser.is_waiter && authToken) {
+                    // Проверяем, активна ли смена
+                    const endBtn = document.getElementById('end-shift-btn');
+                    if (endBtn && endBtn.style.display !== 'none') {
+                        loadWaiterOrders();
+                    }
+                }
+            }, 30000); // 30 секунд
         }
 
         // Проверка доступа к разделам

@@ -1618,6 +1618,20 @@ app.post('/api/orders', (req, res) => {
           // Добавляем позиции заказа
           const insertItem = (index) => {
             if (index >= items.length) {
+              // Логируем создание заказа
+              db.run(
+                'INSERT INTO order_logs (order_id, user_id, total_amount, items_count) VALUES (?, ?, ?, ?)',
+                [orderId, userId, totalAmount, items.length],
+                (logErr) => {
+                  if (logErr) {
+                    console.error('❌ Error logging order:', logErr);
+                    // Не возвращаем ошибку, заказ уже создан
+                  } else {
+                    console.log(`✅ Order logged: ${orderId} for user ${userId}, amount: ${totalAmount}`);
+                  }
+                }
+              );
+              
               res.json({
                 id: orderId,
                 total_amount: totalAmount,
@@ -1863,6 +1877,12 @@ app.post('/api/waiters/:id/start-shift', (req, res) => {
     const db = require('../database/init');
     db.run('INSERT INTO waiter_shifts (waiter_id, status) VALUES (?, ?)', [id, 'working'], function(err){
       if (err) return res.status(500).json({ error: 'Database error' });
+      // Логируем действие
+      db.run(
+        'INSERT INTO waiter_actions_logs (waiter_id, action_type, description) VALUES (?, ?, ?)',
+        [id, 'shift_start', 'Официант начал смену'],
+        (logErr) => { if (logErr) console.error('Error logging waiter action:', logErr); }
+      );
       res.json({ status: 'success', shift_id: this.lastID });
     });
   } catch (error) {
@@ -1877,6 +1897,12 @@ app.post('/api/waiters/:id/end-shift', (req, res) => {
     const db = require('../database/init');
     db.run("UPDATE waiter_shifts SET status = 'off', end_time = CURRENT_TIMESTAMP WHERE waiter_id = ? AND (end_time IS NULL OR status = 'working')", [id], function(err){
       if (err) return res.status(500).json({ error: 'Database error' });
+      // Логируем действие
+      db.run(
+        'INSERT INTO waiter_actions_logs (waiter_id, action_type, description) VALUES (?, ?, ?)',
+        [id, 'shift_end', 'Официант закончил смену'],
+        (logErr) => { if (logErr) console.error('Error logging waiter action:', logErr); }
+      );
       res.json({ status: 'success' });
     });
   } catch (error) {
@@ -1884,6 +1910,470 @@ app.post('/api/waiters/:id/end-shift', (req, res) => {
     res.status(500).json({ error: 'Internal server error' });
   }
 });
+
+// Endpoints для официантов (с авторизацией через токен)
+// Начало/конец смены для текущего официанта
+app.post('/api/waiters/shift/start', (req, res) => {
+  try {
+    const auth = req.headers.authorization || '';
+    if (!auth.startsWith('Bearer ')) {
+      return res.status(401).json({ error: 'Unauthorized' });
+    }
+    
+    const token = auth.substring(7);
+    const jwt = require('jsonwebtoken');
+    let userId;
+    try {
+      const payload = jwt.verify(token, process.env.JWT_SECRET || 'savosbot_club_super_secret_jwt_key_2024');
+      userId = payload.id;
+    } catch (e) {
+      return res.status(401).json({ error: 'Invalid token' });
+    }
+    
+    const db = require('../database/init');
+    
+    // Проверяем, что пользователь является официантом
+    db.get('SELECT * FROM users WHERE id = ? AND is_waiter = 1', [userId], (err, user) => {
+      if (err) return res.status(500).json({ error: 'Database error' });
+      if (!user) return res.status(403).json({ error: 'Только официанты могут начинать смену' });
+      
+      // Проверяем, нет ли активной смены
+      db.get('SELECT * FROM waiter_shifts WHERE waiter_id = ? AND (end_time IS NULL OR status = "working") ORDER BY start_time DESC LIMIT 1', [userId], (err, activeShift) => {
+        if (err) return res.status(500).json({ error: 'Database error' });
+        if (activeShift) {
+          return res.status(400).json({ error: 'У вас уже есть активная смена' });
+        }
+        
+        // Создаем новую смену
+        db.run('INSERT INTO waiter_shifts (waiter_id, status) VALUES (?, ?)', [userId, 'working'], function(err){
+          if (err) return res.status(500).json({ error: 'Database error' });
+          
+          // Логируем действие
+          db.run(
+            'INSERT INTO waiter_actions_logs (waiter_id, action_type, description) VALUES (?, ?, ?)',
+            [userId, 'shift_start', 'Официант начал смену'],
+            (logErr) => { if (logErr) console.error('Error logging waiter action:', logErr); }
+          );
+          
+          res.json({ status: 'success', shift_id: this.lastID, message: 'Смена начата' });
+        });
+      });
+    });
+  } catch (error) {
+    console.error('❌ Error starting shift:', error);
+    res.status(500).json({ error: 'Internal server error' });
+  }
+});
+
+app.post('/api/waiters/shift/end', (req, res) => {
+  try {
+    const auth = req.headers.authorization || '';
+    if (!auth.startsWith('Bearer ')) {
+      return res.status(401).json({ error: 'Unauthorized' });
+    }
+    
+    const token = auth.substring(7);
+    const jwt = require('jsonwebtoken');
+    let userId;
+    try {
+      const payload = jwt.verify(token, process.env.JWT_SECRET || 'savosbot_club_super_secret_jwt_key_2024');
+      userId = payload.id;
+    } catch (e) {
+      return res.status(401).json({ error: 'Invalid token' });
+    }
+    
+    const db = require('../database/init');
+    
+    // Проверяем, что пользователь является официантом
+    db.get('SELECT * FROM users WHERE id = ? AND is_waiter = 1', [userId], (err, user) => {
+      if (err) return res.status(500).json({ error: 'Database error' });
+      if (!user) return res.status(403).json({ error: 'Только официанты могут завершать смену' });
+      
+      // Завершаем активную смену
+      db.run("UPDATE waiter_shifts SET status = 'ended', end_time = CURRENT_TIMESTAMP WHERE waiter_id = ? AND (end_time IS NULL OR status = 'working')", [userId], function(err){
+        if (err) return res.status(500).json({ error: 'Database error' });
+        if (this.changes === 0) {
+          return res.status(400).json({ error: 'Нет активной смены для завершения' });
+        }
+        
+        // Логируем действие
+        db.run(
+          'INSERT INTO waiter_actions_logs (waiter_id, action_type, description) VALUES (?, ?, ?)',
+          [userId, 'shift_end', 'Официант закончил смену'],
+          (logErr) => { if (logErr) console.error('Error logging waiter action:', logErr); }
+        );
+        
+        res.json({ status: 'success', message: 'Смена завершена' });
+      });
+    });
+  } catch (error) {
+    console.error('❌ Error ending shift:', error);
+    res.status(500).json({ error: 'Internal server error' });
+  }
+});
+
+// Получение заказов для официанта на смене
+app.get('/api/waiters/orders', (req, res) => {
+  try {
+    const auth = req.headers.authorization || '';
+    if (!auth.startsWith('Bearer ')) {
+      return res.status(401).json({ error: 'Unauthorized' });
+    }
+    
+    const token = auth.substring(7);
+    const jwt = require('jsonwebtoken');
+    let userId;
+    try {
+      const payload = jwt.verify(token, process.env.JWT_SECRET || 'savosbot_club_super_secret_jwt_key_2024');
+      userId = payload.id;
+    } catch (e) {
+      return res.status(401).json({ error: 'Invalid token' });
+    }
+    
+    const db = require('../database/init');
+    
+    // Проверяем, что пользователь является официантом и на смене
+    db.get('SELECT * FROM users WHERE id = ? AND is_waiter = 1', [userId], (err, user) => {
+      if (err) return res.status(500).json({ error: 'Database error' });
+      if (!user) return res.status(403).json({ error: 'Только официанты могут просматривать заказы' });
+      
+      // Проверяем активную смену
+      db.get('SELECT * FROM waiter_shifts WHERE waiter_id = ? AND (end_time IS NULL OR status = "working") ORDER BY start_time DESC LIMIT 1', [userId], (err, shift) => {
+        if (err) return res.status(500).json({ error: 'Database error' });
+        if (!shift) {
+          return res.status(400).json({ error: 'Вы не на смене. Начните смену, чтобы получать заказы.' });
+        }
+        
+        // Получаем заказы со статусом 'new' (новые, не взятые в работу)
+        const query = `
+          SELECT 
+            o.*,
+            u.first_name as user_first_name,
+            u.last_name as user_last_name,
+            u.username as user_username,
+            u.phone as user_phone,
+            GROUP_CONCAT(
+              d.name || ' (x' || oi.quantity || ' - ' || oi.price * oi.quantity || ' фиш.)'
+            ) as items_text,
+            COUNT(oi.id) as items_count
+          FROM orders o
+          JOIN users u ON o.user_id = u.id
+          LEFT JOIN order_items oi ON o.id = oi.order_id
+          LEFT JOIN drinks d ON oi.drink_id = d.id
+          WHERE o.status = 'new'
+          GROUP BY o.id
+          ORDER BY o.created_at ASC
+        `;
+        
+        db.all(query, [], (err, orders) => {
+          if (err) {
+            console.error('❌ Error fetching waiter orders:', err);
+            return res.status(500).json({ error: 'Database error' });
+          }
+          
+          // Получаем детали позиций для каждого заказа
+          const ordersWithItems = orders.map(order => {
+            return {
+              ...order,
+              items_text: order.items_text || '',
+              items_count: order.items_count || 0
+            };
+          });
+          
+          res.json(ordersWithItems || []);
+        });
+      });
+    });
+  } catch (error) {
+    console.error('❌ Error fetching waiter orders:', error);
+    res.status(500).json({ error: 'Internal server error' });
+  }
+});
+
+// Получение детальной информации о заказе (для карточки)
+app.get('/api/waiters/orders/:id', (req, res) => {
+  try {
+    const { id } = req.params;
+    const auth = req.headers.authorization || '';
+    if (!auth.startsWith('Bearer ')) {
+      return res.status(401).json({ error: 'Unauthorized' });
+    }
+    
+    const token = auth.substring(7);
+    const jwt = require('jsonwebtoken');
+    let userId;
+    try {
+      const payload = jwt.verify(token, process.env.JWT_SECRET || 'savosbot_club_super_secret_jwt_key_2024');
+      userId = payload.id;
+    } catch (e) {
+      return res.status(401).json({ error: 'Invalid token' });
+    }
+    
+    const db = require('../database/init');
+    
+    // Проверяем, что пользователь является официантом
+    db.get('SELECT * FROM users WHERE id = ? AND is_waiter = 1', [userId], (err, user) => {
+      if (err) return res.status(500).json({ error: 'Database error' });
+      if (!user) return res.status(403).json({ error: 'Только официанты могут просматривать детали заказов' });
+      
+      // Получаем заказ с информацией о покупателе и позициях
+      const orderQuery = `
+        SELECT 
+          o.*,
+          u.id as user_id,
+          u.first_name as user_first_name,
+          u.last_name as user_last_name,
+          u.username as user_username,
+          u.phone as user_phone,
+          u.photo_url as user_photo_url
+        FROM orders o
+        JOIN users u ON o.user_id = u.id
+        WHERE o.id = ?
+      `;
+      
+      db.get(orderQuery, [id], (err, order) => {
+        if (err) return res.status(500).json({ error: 'Database error' });
+        if (!order) return res.status(404).json({ error: 'Заказ не найден' });
+        
+        // Получаем позиции заказа
+        const itemsQuery = `
+          SELECT 
+            oi.*,
+            d.name as drink_name,
+            d.description as drink_description,
+            d.category as drink_category
+          FROM order_items oi
+          LEFT JOIN drinks d ON oi.drink_id = d.id
+          WHERE oi.order_id = ?
+        `;
+        
+        db.all(itemsQuery, [id], (err, items) => {
+          if (err) return res.status(500).json({ error: 'Database error' });
+          
+          res.json({
+            ...order,
+            items: items || []
+          });
+        });
+      });
+    });
+  } catch (error) {
+    console.error('❌ Error fetching order details:', error);
+    res.status(500).json({ error: 'Internal server error' });
+  }
+});
+
+// Взять заказ в работу
+app.post('/api/orders/:id/take', (req, res) => {
+  try {
+    const { id } = req.params;
+    const auth = req.headers.authorization || '';
+    if (!auth.startsWith('Bearer ')) {
+      return res.status(401).json({ error: 'Unauthorized' });
+    }
+    
+    const token = auth.substring(7);
+    const jwt = require('jsonwebtoken');
+    let userId;
+    try {
+      const payload = jwt.verify(token, process.env.JWT_SECRET || 'savosbot_club_super_secret_jwt_key_2024');
+      userId = payload.id;
+    } catch (e) {
+      return res.status(401).json({ error: 'Invalid token' });
+    }
+    
+    const db = require('../database/init');
+    
+    // Проверяем, что пользователь является официантом и на смене
+    db.get('SELECT * FROM users WHERE id = ? AND is_waiter = 1', [userId], (err, user) => {
+      if (err) return res.status(500).json({ error: 'Database error' });
+      if (!user) return res.status(403).json({ error: 'Только официанты могут брать заказы' });
+      
+      // Проверяем активную смену
+      db.get('SELECT * FROM waiter_shifts WHERE waiter_id = ? AND (end_time IS NULL OR status = "working") ORDER BY start_time DESC LIMIT 1', [userId], (err, shift) => {
+        if (err) return res.status(500).json({ error: 'Database error' });
+        if (!shift) {
+          return res.status(400).json({ error: 'Вы не на смене. Начните смену, чтобы брать заказы.' });
+        }
+        
+        // Берем заказ в работу
+        db.run(
+          'UPDATE orders SET waiter_id = ?, status = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ? AND status = ?',
+          [userId, 'taken', id, 'new'],
+          function(err) {
+            if (err) return res.status(500).json({ error: 'Database error' });
+            if (this.changes === 0) {
+              return res.status(400).json({ error: 'Заказ не найден или уже взят в работу' });
+            }
+            
+            // Логируем действие
+            db.run(
+              'INSERT INTO waiter_actions_logs (waiter_id, action_type, order_id, description) VALUES (?, ?, ?, ?)',
+              [userId, 'order_taken', id, `Официант взял заказ #${id} в работу`],
+              (logErr) => { 
+                if (logErr) console.error('Error logging waiter action:', logErr);
+                else console.log(`✅ Waiter ${userId} took order ${id}`);
+              }
+            );
+            
+            res.json({ status: 'success', message: 'Заказ взят в работу' });
+          }
+        );
+      });
+    });
+  } catch (error) {
+    console.error('❌ Error taking order:', error);
+    res.status(500).json({ error: 'Internal server error' });
+  }
+});
+
+// Завершить заказ
+app.post('/api/orders/:id/complete', (req, res) => {
+  try {
+    const { id } = req.params;
+    const auth = req.headers.authorization || '';
+    if (!auth.startsWith('Bearer ')) {
+      return res.status(401).json({ error: 'Unauthorized' });
+    }
+    
+    const token = auth.substring(7);
+    const jwt = require('jsonwebtoken');
+    let userId;
+    try {
+      const payload = jwt.verify(token, process.env.JWT_SECRET || 'savosbot_club_super_secret_jwt_key_2024');
+      userId = payload.id;
+    } catch (e) {
+      return res.status(401).json({ error: 'Invalid token' });
+    }
+    
+    const db = require('../database/init');
+    
+    // Проверяем, что пользователь является официантом и заказ принадлежит ему
+    db.get('SELECT * FROM orders WHERE id = ? AND waiter_id = ?', [id, userId], (err, order) => {
+      if (err) return res.status(500).json({ error: 'Database error' });
+      if (!order) {
+        return res.status(403).json({ error: 'Заказ не найден или не назначен вам' });
+      }
+      
+      if (order.status === 'completed') {
+        return res.status(400).json({ error: 'Заказ уже завершен' });
+      }
+      
+      // Завершаем заказ
+      db.run(
+        'UPDATE orders SET status = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?',
+        ['completed', id],
+        function(err) {
+          if (err) return res.status(500).json({ error: 'Database error' });
+          
+          // Логируем действие
+          db.run(
+            'INSERT INTO waiter_actions_logs (waiter_id, action_type, order_id, description) VALUES (?, ?, ?, ?)',
+            [userId, 'order_completed', id, `Официант завершил заказ #${id}`],
+            (logErr) => { 
+              if (logErr) console.error('Error logging waiter action:', logErr);
+              else console.log(`✅ Waiter ${userId} completed order ${id}`);
+            }
+          );
+          
+          res.json({ status: 'success', message: 'Заказ завершен' });
+        }
+      );
+    });
+  } catch (error) {
+    console.error('❌ Error completing order:', error);
+    res.status(500).json({ error: 'Internal server error' });
+  }
+});
+
+// Получение логов действий официантов (для админа)
+app.get('/api/waiters/actions/logs', (req, res) => {
+  try {
+    const auth = req.headers.authorization || '';
+    if (!auth.startsWith('Bearer ')) {
+      return res.status(401).json({ error: 'Unauthorized' });
+    }
+    
+    const token = auth.substring(7);
+    const jwt = require('jsonwebtoken');
+    let userId;
+    try {
+      const payload = jwt.verify(token, process.env.JWT_SECRET || 'savosbot_club_super_secret_jwt_key_2024');
+      userId = payload.id;
+    } catch (e) {
+      // Проверяем adminToken
+      if (token === 'super-admin-token' || token === 'demo-admin-token') {
+        userId = 0; // Специальный ID для админа
+      } else {
+        return res.status(401).json({ error: 'Invalid token' });
+      }
+    }
+    
+    const db = require('../database/init');
+    
+    // Проверяем, что пользователь является админом
+    if (userId !== 0) {
+      db.get('SELECT * FROM users WHERE id = ? AND (is_admin = 1 OR is_super_admin = 1)', [userId], (err, user) => {
+        if (err) return res.status(500).json({ error: 'Database error' });
+        if (!user) return res.status(403).json({ error: 'Только администраторы могут просматривать логи официантов' });
+        
+        fetchWaiterLogs(db, res);
+      });
+    } else {
+      fetchWaiterLogs(db, res);
+    }
+  } catch (error) {
+    console.error('❌ Error fetching waiter logs:', error);
+    res.status(500).json({ error: 'Internal server error' });
+  }
+});
+
+function fetchWaiterLogs(db, res) {
+  const query = `
+    SELECT 
+      wal.*,
+      u.first_name as waiter_first_name,
+      u.last_name as waiter_last_name,
+      u.username as waiter_username,
+      o.id as order_id,
+      o.total_amount as order_amount,
+      o.confirmation_code as order_code
+    FROM waiter_actions_logs wal
+    JOIN users u ON wal.waiter_id = u.id
+    LEFT JOIN orders o ON wal.order_id = o.id
+    ORDER BY wal.created_at DESC
+    LIMIT 1000
+  `;
+  
+  db.all(query, [], (err, logs) => {
+    if (err) {
+      console.error('❌ Error fetching waiter logs:', err);
+      return res.status(500).json({ error: 'Database error' });
+    }
+    
+    res.json({
+      status: 'success',
+      logs: logs.map(log => ({
+        id: log.id,
+        waiter: {
+          id: log.waiter_id,
+          first_name: log.waiter_first_name,
+          last_name: log.waiter_last_name,
+          username: log.waiter_username,
+          full_name: `${log.waiter_first_name || ''} ${log.waiter_last_name || ''}`.trim() || log.waiter_username || `ID: ${log.waiter_id}`
+        },
+        action_type: log.action_type,
+        order: log.order_id ? {
+          id: log.order_id,
+          total_amount: parseFloat(log.order_amount || 0),
+          confirmation_code: log.order_code
+        } : null,
+        description: log.description,
+        created_at: log.created_at
+      }))
+    });
+  });
+}
 
 // Settings API endpoints
 app.get('/api/settings', (req, res) => {
