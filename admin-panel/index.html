@@ -375,7 +375,17 @@
 
             <div id="events" class="tab-content">
                 <div class="card">
-                    <h3>📅 Мероприятия</h3>
+                    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:15px;gap:10px;flex-wrap:wrap;">
+                        <h3 style="margin:0;">📅 Мероприятия</h3>
+                        <button class="btn btn-secondary" onclick="loadEventsData()">🔃 Обновить</button>
+                    </div>
+                    <form id="create-event-form" style="display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:10px;margin-bottom:15px;">
+                        <input type="text" id="event-title" placeholder="Название" required>
+                        <input type="datetime-local" id="event-date" required>
+                        <input type="number" id="event-price" placeholder="Цена, ₽" min="0" step="1">
+                        <input type="url" id="event-image" placeholder="Ссылка на изображение (опц.)">
+                        <button class="btn" type="submit">➕ Создать</button>
+                    </form>
                     <div id="events-list">
                         <div class="loading">Загрузка мероприятий...</div>
                     </div>
@@ -384,7 +394,17 @@
 
             <div id="drinks" class="tab-content">
                 <div class="card">
-                    <h3>🍸 Напитки</h3>
+                    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:15px;gap:10px;flex-wrap:wrap;">
+                        <h3 style="margin:0;">🍸 Напитки</h3>
+                        <button class="btn btn-secondary" onclick="loadDrinksData()">🔃 Обновить</button>
+                    </div>
+                    <form id="create-drink-form" style="display:grid;grid-template-columns:repeat(auto-fit,minmax(160px,1fr));gap:10px;margin-bottom:15px;">
+                        <input type="text" id="drink-name" placeholder="Название" required>
+                        <input type="text" id="drink-category" placeholder="Категория">
+                        <input type="number" id="drink-price" placeholder="Цена, ₽" required min="0" step="1">
+                        <input type="url" id="drink-image" placeholder="Ссылка на изображение (опц.)">
+                        <button class="btn" type="submit">➕ Добавить</button>
+                    </form>
                     <div id="drinks-list">
                         <div class="loading">Загрузка напитков...</div>
                     </div>
@@ -393,7 +413,10 @@
 
             <div id="orders" class="tab-content">
                 <div class="card">
-                    <h3>📋 Заказы</h3>
+                    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:15px;gap:10px;flex-wrap:wrap;">
+                        <h3 style="margin:0;">📋 Заказы</h3>
+                        <button class="btn btn-secondary" onclick="loadOrdersData()">🔃 Обновить</button>
+                    </div>
                     <div id="orders-list">
                         <div class="loading">Загрузка заказов...</div>
                     </div>
@@ -402,7 +425,18 @@
 
             <div id="contests" class="tab-content">
                 <div class="card">
-                    <h3>🏆 Конкурсы</h3>
+                    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:15px;gap:10px;flex-wrap:wrap;">
+                        <h3 style="margin:0;">🏆 Конкурсы</h3>
+                        <button class="btn btn-secondary" onclick="loadContestsData()">🔃 Обновить</button>
+                    </div>
+                    <form id="create-contest-form" style="display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:10px;margin-bottom:15px;">
+                        <input type="text" id="contest-title" placeholder="Название" required>
+                        <input type="date" id="contest-start" required>
+                        <input type="date" id="contest-end" required>
+                        <input type="text" id="contest-prize" placeholder="Приз (опц.)">
+                        <input type="url" id="contest-link" placeholder="Ссылка на конкурс (опц.)">
+                        <button class="btn" type="submit">➕ Создать</button>
+                    </form>
                     <div id="contests-list">
                         <div class="loading">Загрузка конкурсов...</div>
                     </div>
@@ -411,7 +445,10 @@
 
             <div id="waiters" class="tab-content">
                 <div class="card">
-                    <h3>🍽️ Официанты</h3>
+                    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:15px;gap:10px;flex-wrap:wrap;">
+                        <h3 style="margin:0;">🍽️ Официанты</h3>
+                        <button class="btn btn-secondary" onclick="loadWaiters()">🔃 Обновить</button>
+                    </div>
                     <div id="waiters-list">
                         <div class="loading">Загрузка официантов...</div>
                     </div>
@@ -881,11 +918,24 @@
             try {
                 const response = await fetch('/api/events');
                 const events = await response.json();
-                
-                document.getElementById('events-list').innerHTML = events.map(event => `
-                    <div style="padding: 15px; background: rgba(255,255,255,0.05); border-radius: 10px; margin-bottom: 10px;">
-                        <div style="font-weight: 600; color: #ef4444; margin-bottom: 5px;">${event.title}</div>
-                        <div style="color: rgba(255,255,255,0.7); font-size: 14px;">${new Date(event.date).toLocaleDateString('ru-RU')}</div>
+                const list = document.getElementById('events-list');
+                if (!events || events.length === 0) {
+                    list.innerHTML = '<p style="text-align:center; color: rgba(255,255,255,0.7);">Нет мероприятий</p>';
+                    return;
+                }
+                list.innerHTML = events.map(ev => `
+                    <div class="card" style="margin-bottom: 12px;">
+                        <div style="display:flex; justify-content: space-between; align-items: center; gap: 10px; flex-wrap: wrap;">
+                            <div>
+                                <div style="font-weight: 600; color: #ef4444;">${ev.title}</div>
+                                <div style="color: rgba(255,255,255,0.7); font-size: 14px;">📅 ${new Date(ev.date).toLocaleString('ru-RU')}</div>
+                            </div>
+                            <div style="font-weight: 700; color: #ef4444;">${ev.price ? ev.price + ' ₽' : 'Бесплатно'}</div>
+                        </div>
+                        ${ev.description ? `<p style=\"margin-top:8px;color:rgba(255,255,255,0.8);\">${ev.description}</p>` : ''}
+                        <div style="display:flex; gap:8px; margin-top:10px;">
+                            <button class="btn btn-secondary" onclick="deleteEvent(${ev.id})">🗑️ Удалить</button>
+                        </div>
                     </div>
                 `).join('');
             } catch (error) {
@@ -894,16 +944,43 @@
             }
         }
 
+        // Создание мероприятия
+        document.getElementById('create-event-form')?.addEventListener('submit', async (e) => {
+            e.preventDefault();
+            const payload = {
+                title: document.getElementById('event-title').value.trim(),
+                date: document.getElementById('event-date').value,
+                price: Number(document.getElementById('event-price').value || 0),
+                image_url: document.getElementById('event-image').value.trim() || null
+            };
+            const res = await fetch('/api/events', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) });
+            if (res.ok) { showToast('success','Мероприятие создано',''); (e.target).reset(); loadEventsData(); }
+            else { const d = await res.json().catch(()=>({error:'Ошибка'})); showToast('error','Ошибка', d.error || ''); }
+        });
+
+        async function deleteEvent(id) {
+            if (!confirm('Удалить мероприятие?')) return;
+            const r = await fetch(`/api/events/${id}`, { method: 'DELETE' });
+            if (r.ok) { loadEventsData(); showToast('success','Удалено',''); } else { showToast('error','Ошибка','Не удалось удалить'); }
+        }
+
         // Загрузка напитков
         async function loadDrinksData() {
             try {
                 const response = await fetch('/api/drinks');
                 const drinks = await response.json();
-                
-                document.getElementById('drinks-list').innerHTML = drinks.map(drink => `
-                    <div style="padding: 15px; background: rgba(255,255,255,0.05); border-radius: 10px; margin-bottom: 10px;">
-                        <div style="font-weight: 600; color: #ef4444; margin-bottom: 5px;">${drink.name}</div>
-                        <div style="color: rgba(255,255,255,0.7); font-size: 14px;">${drink.price} ₽</div>
+                const list = document.getElementById('drinks-list');
+                if (!drinks || drinks.length === 0) { list.innerHTML = '<p style="text-align:center;color:rgba(255,255,255,0.7);">Нет напитков</p>'; return; }
+                list.innerHTML = drinks.map(drink => `
+                    <div class=\"drink-item\">
+                        <div class=\"drink-info\">
+                            <h4>${drink.name}</h4>
+                            <p style=\"color: rgba(255,255,255,0.7); font-size: 14px;\">${drink.description || ''}</p>
+                        </div>
+                        <div style=\"display:flex; align-items:center; gap:15px;\">
+                            <span class=\"drink-price\">${drink.price} ₽</span>
+                            <button class=\"btn btn-secondary\" onclick=\"toggleDrink(${drink.id})\">${drink.is_available ? 'Скрыть' : 'Вернуть'}</button>
+                        </div>
                     </div>
                 `).join('');
             } catch (error) {
@@ -912,22 +989,48 @@
             }
         }
 
-        // Загрузка заказов
+        // Создание напитка
+        document.getElementById('create-drink-form')?.addEventListener('submit', async (e) => {
+            e.preventDefault();
+            const payload = {
+                name: document.getElementById('drink-name').value.trim(),
+                category: document.getElementById('drink-category').value.trim(),
+                price: Number(document.getElementById('drink-price').value),
+                image_url: document.getElementById('drink-image').value.trim() || null
+            };
+            const res = await fetch('/api/drinks', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify(payload)});
+            if (res.ok) { showToast('success','Напиток добавлен',''); (e.target).reset(); loadDrinksData(); } else { const d = await res.json().catch(()=>({error:'Ошибка'})); showToast('error','Ошибка', d.error || ''); }
+        });
+
+        async function toggleDrink(id){ const r = await fetch(`/api/drinks/${id}/toggle`, { method:'PATCH' }); if (r.ok) loadDrinksData(); else showToast('error','Ошибка','Не удалось изменить доступность'); }
+
+        // Загрузка заказов (детальные карточки)
         async function loadOrdersData() {
             try {
                 const response = await fetch('/api/orders');
                 const orders = await response.json();
-                
                 const ordersList = document.getElementById('orders-list');
-                if (!orders || orders.length === 0) {
-                    ordersList.innerHTML = '<p style="text-align: center; color: rgba(255,255,255,0.7);">Нет заказов</p>';
-                    return;
-                }
-                
+                if (!orders || orders.length === 0) { ordersList.innerHTML = '<p style="text-align:center;color:rgba(255,255,255,0.7);">Нет заказов</p>'; return; }
                 ordersList.innerHTML = orders.map(order => `
-                    <div style="padding: 15px; background: rgba(255,255,255,0.05); border-radius: 10px; margin-bottom: 10px;">
-                        <div style="font-weight: 600; color: #ef4444; margin-bottom: 5px;">Заказ #${order.id}</div>
-                        <div style="color: rgba(255,255,255,0.7); font-size: 14px;">${order.total_amount || 0} ₽ | ${order.status}</div>
+                    <div class=\"order-item\">
+                        <div class=\"order-status status-${order.status}\">${order.status === 'new' ? 'Новый' : order.status === 'taken' ? 'В работе' : order.status === 'completed' ? 'Выполнен' : order.status}</div>
+                        <h4 style=\"margin-bottom:10px;\">Заказ #${order.id}</h4>
+                        ${(order.items && order.items.length) ? `
+                          <div style=\"margin-bottom:10px;\">
+                            ${order.items.map(it => `
+                              <div style=\"display:flex;justify-content:space-between;gap:10px;margin:5px 0;\">
+                                <span style=\"color:rgba(255,255,255,0.9);\">Товар #${it.drink_id}</span>
+                                <span style=\"color:rgba(255,255,255,0.7);\">×${it.quantity}</span>
+                                <span style=\"font-weight:600;color:#ef4444;\">${it.price} ₽</span>
+                              </div>
+                            `).join('')}
+                          </div>
+                        ` : '<div style=\"margin-bottom:10px;color:rgba(255,255,255,0.7);\">Нет позиций</div>'}
+                        <div style=\"display:flex;justify-content:space-between;align-items:center;\">
+                            <span style=\"color: rgba(255,255,255,0.7);\">📅 ${new Date(order.created_at).toLocaleString('ru-RU')}</span>
+                            <span style=\"font-weight:600;color:#ef4444;\">${order.total_amount} ₽</span>
+                        </div>
+                        ${order.confirmation_code ? `<div style=\"margin-top:10px;padding:10px;background:rgba(34,197,94,0.2);border-radius:8px;\"><strong>Код подтверждения:</strong> ${order.confirmation_code}</div>` : ''}
                     </div>
                 `).join('');
             } catch (error) {
@@ -935,6 +1038,70 @@
                 document.getElementById('orders-list').innerHTML = '<div class="error">Ошибка загрузки заказов</div>';
             }
         }
+
+        // Конкурсы
+        async function loadContestsData(){
+            try {
+                const r = await fetch('/api/contests');
+                const contests = await r.json();
+                const el = document.getElementById('contests-list');
+                if (!contests || contests.length === 0) { el.innerHTML = '<p style="text-align:center;color:rgba(255,255,255,0.7);">Нет конкурсов</p>'; return; }
+                el.innerHTML = contests.map(c => `
+                  <div class=\"card\" style=\"margin-bottom:12px;\">
+                    <div style=\"display:flex;justify-content:space-between;align-items:center;\">
+                      <div>
+                        <div style=\"font-weight:600;color:#ef4444;\">${c.title}</div>
+                        <div style=\"color:rgba(255,255,255,0.7);font-size:14px;\">${new Date(c.start_date).toLocaleDateString('ru-RU')} — ${new Date(c.end_date).toLocaleDateString('ru-RU')}</div>
+                        ${c.prize ? `<div style=\\"color:#f59e0b;\\">🏆 ${c.prize}</div>` : ''}
+                        ${c.image_url ? `<div><a href=\\"${c.image_url}\\" target=\\"_blank\\" style=\\"color:#60a5fa;\\">🔗 Ссылка</a></div>` : ''}
+                      </div>
+                    </div>
+                  </div>
+                `).join('');
+            } catch(e){ console.error(e); document.getElementById('contests-list').innerHTML = '<div class="error">Ошибка загрузки конкурсов</div>'; }
+        }
+
+        document.getElementById('create-contest-form')?.addEventListener('submit', async (e)=>{
+            e.preventDefault();
+            const payload = {
+                title: document.getElementById('contest-title').value.trim(),
+                start_date: document.getElementById('contest-start').value,
+                end_date: document.getElementById('contest-end').value,
+                prize: document.getElementById('contest-prize').value.trim() || null,
+                link: document.getElementById('contest-link').value.trim() || null
+            };
+            const res = await fetch('/api/contests', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify(payload)});
+            if (res.ok) { showToast('success','Конкурс создан',''); (e.target).reset(); loadContestsData(); } else { const d = await res.json().catch(()=>({error:'Ошибка'})); showToast('error','Ошибка', d.error || ''); }
+        });
+
+        // Официанты
+        async function loadWaiters(){
+            try {
+                const r = await fetch('/api/waiters');
+                const waiters = await r.json();
+                const c = document.getElementById('waiters-list');
+                if (!waiters || waiters.length === 0) { c.innerHTML = '<p style="text-align:center;color:rgba(255,255,255,0.7);">Нет официантов</p>'; return; }
+                c.innerHTML = waiters.map(w => `
+                  <div class=\"card\" style=\"margin-bottom:12px;\">
+                    <div style=\"display:flex;justify-content:space-between;align-items:center;\">
+                      <div>
+                        <div style=\"font-weight:600;color:#ef4444;\">${w.first_name || ''} ${w.last_name || ''}</div>
+                        <div style=\"color:rgba(255,255,255,0.7);font-size:14px;\">@${w.username || 'нет'}</div>
+                      </div>
+                      <div class=\"status-badge ${w.status==='working'?'status-resident':'status-guest'}\">${w.status==='working'?'На смене':'Не работает'}</div>
+                    </div>
+                    <div style=\"display:flex;gap:8px;margin-top:10px;\">
+                      <button class=\"btn btn-secondary\" onclick=\"openWaiter(${w.id})\">👁️ Профиль</button>
+                      ${w.status==='working' ? `<button class=\\"btn btn-secondary\\" onclick=\\"endShift(${w.id})\\">⏹ Завершить смену</button>` : `<button class=\\"btn btn-secondary\\" onclick=\\"startShift(${w.id})\\">▶️ Начать смену</button>`}
+                    </div>
+                  </div>
+                `).join('');
+            } catch(e){ console.error(e); document.getElementById('waiters-list').innerHTML = '<div class="error">Ошибка загрузки официантов</div>'; }
+        }
+
+        async function openWaiter(id){ try { const r=await fetch(`/api/waiters/${id}`); const d=await r.json(); alert(`Официант: ${d.user.first_name||''} ${d.user.last_name||''}\nСмены: ${d.shifts.length}`);} catch(e){ showToast('error','Ошибка','Не удалось открыть профиль'); } }
+        async function startShift(id){ const r = await fetch(`/api/waiters/${id}/start-shift`, { method:'POST' }); if (r.ok) loadWaiters(); }
+        async function endShift(id){ const r = await fetch(`/api/waiters/${id}/end-shift`, { method:'POST' }); if (r.ok) loadWaiters(); }
 
         // Загрузка пользователей в супер-админке
         async function loadSuperUsers() {

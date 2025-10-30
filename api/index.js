@@ -495,16 +495,35 @@ app.post('/api/statistics', (req, res) => {
 
 app.get('/api/statistics', (req, res) => {
   try {
-    // Return mock statistics (in production, fetch from database)
-    res.json({
-      total_users: 150,
-      active_users: 120,
-      today_users: 5,
-      total_orders: 234,
-      last_update: new Date().toISOString(),
-      source: 'website'
+    const db = require('../database/init');
+
+    const queries = {
+      total_users: 'SELECT COUNT(*) as c FROM users',
+      active_users: "SELECT COUNT(*) as c FROM users WHERE is_resident = 1 OR is_waiter = 1 OR is_admin = 1 OR is_super_admin = 1",
+      today_users: "SELECT COUNT(*) as c FROM users WHERE DATE(created_at) = DATE('now')",
+      total_orders: 'SELECT COUNT(*) as c FROM orders'
+    };
+
+    const result = {};
+
+    db.get(queries.total_users, [], (e1, r1) => {
+      result.total_users = r1 ? r1.c : 0;
+      db.get(queries.active_users, [], (e2, r2) => {
+        result.active_users = r2 ? r2.c : 0;
+        db.get(queries.today_users, [], (e3, r3) => {
+          result.today_users = r3 ? r3.c : 0;
+          db.get(queries.total_orders, [], (e4, r4) => {
+            result.total_orders = r4 ? r4.c : 0;
+            res.json({
+              ...result,
+              last_update: new Date().toISOString(),
+              source: 'database'
+            });
+          });
+        });
+      });
     });
-    
+
   } catch (error) {
     console.error('❌ Error fetching statistics:', error);
     res.status(500).json({ error: 'Internal server error' });
@@ -768,13 +787,65 @@ app.post('/api/upload-bot-users', (req, res) => {
 // Events endpoint
 app.get('/api/events', (req, res) => {
   try {
-    res.json([
-      { id: 1, title: 'DJ Night с Resident DJ', date: '2024-11-15T22:00:00Z', price: 800, is_active: 1 },
-      { id: 2, title: 'Wine Tasting Evening', date: '2024-11-20T19:00:00Z', price: 1200, is_active: 1 },
-      { id: 3, title: 'Караоке-вечеринка', date: '2024-11-25T20:00:00Z', price: 0, is_active: 1 }
-    ]);
+    const db = require('../database/init');
+    db.all('SELECT * FROM events ORDER BY date DESC', [], (err, rows) => {
+      if (err) return res.status(500).json({ error: 'Database error' });
+      res.json(rows || []);
+    });
   } catch (error) {
     console.error('❌ Error fetching events:', error);
+    res.status(500).json({ error: 'Internal server error' });
+  }
+});
+
+app.post('/api/events', (req, res) => {
+  try {
+    const { title, description, date, price, image_url, is_active } = req.body;
+    if (!title || !date) return res.status(400).json({ error: 'Title and date are required' });
+    const db = require('../database/init');
+    db.run(
+      'INSERT INTO events (title, description, date, price, image_url, is_active) VALUES (?, ?, ?, ?, ?, ?)',
+      [title, description || null, date, price || 0, image_url || null, is_active ? 1 : 1],
+      function(err) {
+        if (err) return res.status(500).json({ error: 'Database error' });
+        res.json({ id: this.lastID, title, description, date, price, image_url, is_active: is_active ? 1 : 1 });
+      }
+    );
+  } catch (error) {
+    console.error('❌ Error creating event:', error);
+    res.status(500).json({ error: 'Internal server error' });
+  }
+});
+
+app.put('/api/events/:id', (req, res) => {
+  try {
+    const { id } = req.params;
+    const { title, description, date, price, image_url, is_active } = req.body;
+    const db = require('../database/init');
+    db.run(
+      'UPDATE events SET title = ?, description = ?, date = ?, price = ?, image_url = ?, is_active = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?',
+      [title, description || null, date, price || 0, image_url || null, is_active ? 1 : 0, id],
+      function(err) {
+        if (err) return res.status(500).json({ error: 'Database error' });
+        res.json({ status: 'success' });
+      }
+    );
+  } catch (error) {
+    console.error('❌ Error updating event:', error);
+    res.status(500).json({ error: 'Internal server error' });
+  }
+});
+
+app.delete('/api/events/:id', (req, res) => {
+  try {
+    const { id } = req.params;
+    const db = require('../database/init');
+    db.run('DELETE FROM events WHERE id = ?', [id], function(err) {
+      if (err) return res.status(500).json({ error: 'Database error' });
+      res.json({ status: 'success' });
+    });
+  } catch (error) {
+    console.error('❌ Error deleting event:', error);
     res.status(500).json({ error: 'Internal server error' });
   }
 });
@@ -782,15 +853,70 @@ app.get('/api/events', (req, res) => {
 // Drinks endpoint
 app.get('/api/drinks', (req, res) => {
   try {
-    res.json([
-      { id: 1, name: 'Коктейль "Савос"', price: 450, category: 'Коктейли', is_available: 1 },
-      { id: 2, name: 'Пиво "Клубное"', price: 200, category: 'Пиво', is_available: 1 },
-      { id: 3, name: 'Вино красное', price: 350, category: 'Вино', is_available: 1 },
-      { id: 4, name: 'Водка премиум', price: 500, category: 'Крепкие напитки', is_available: 1 },
-      { id: 5, name: 'Кофе', price: 150, category: 'Горячие напитки', is_available: 1 }
-    ]);
+    const db = require('../database/init');
+    db.all('SELECT * FROM drinks ORDER BY id DESC', [], (err, rows) => {
+      if (err) return res.status(500).json({ error: 'Database error' });
+      res.json(rows || []);
+    });
   } catch (error) {
     console.error('❌ Error fetching drinks:', error);
+    res.status(500).json({ error: 'Internal server error' });
+  }
+});
+
+app.post('/api/drinks', (req, res) => {
+  try {
+    const { name, description, price, category, image_url, is_available } = req.body;
+    if (!name || price === undefined) return res.status(400).json({ error: 'Name and price are required' });
+    const db = require('../database/init');
+    db.run(
+      'INSERT INTO drinks (name, description, price, category, image_url, is_available) VALUES (?, ?, ?, ?, ?, ?)',
+      [name, description || null, price, category || null, image_url || null, is_available ? 1 : 1],
+      function(err) {
+        if (err) return res.status(500).json({ error: 'Database error' });
+        res.json({ id: this.lastID, name, description, price, category, image_url, is_available: is_available ? 1 : 1 });
+      }
+    );
+  } catch (error) {
+    console.error('❌ Error creating drink:', error);
+    res.status(500).json({ error: 'Internal server error' });
+  }
+});
+
+app.put('/api/drinks/:id', (req, res) => {
+  try {
+    const { id } = req.params;
+    const { name, description, price, category, image_url, is_available } = req.body;
+    const db = require('../database/init');
+    db.run(
+      'UPDATE drinks SET name = ?, description = ?, price = ?, category = ?, image_url = ?, is_available = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?',
+      [name, description || null, price, category || null, image_url || null, is_available ? 1 : 0, id],
+      function(err) {
+        if (err) return res.status(500).json({ error: 'Database error' });
+        res.json({ status: 'success' });
+      }
+    );
+  } catch (error) {
+    console.error('❌ Error updating drink:', error);
+    res.status(500).json({ error: 'Internal server error' });
+  }
+});
+
+app.patch('/api/drinks/:id/toggle', (req, res) => {
+  try {
+    const { id } = req.params;
+    const db = require('../database/init');
+    db.get('SELECT is_available FROM drinks WHERE id = ?', [id], (err, row) => {
+      if (err) return res.status(500).json({ error: 'Database error' });
+      if (!row) return res.status(404).json({ error: 'Not found' });
+      const next = row.is_available ? 0 : 1;
+      db.run('UPDATE drinks SET is_available = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?', [next, id], function(e2){
+        if (e2) return res.status(500).json({ error: 'Database error' });
+        res.json({ status: 'success', is_available: next });
+      });
+    });
+  } catch (error) {
+    console.error('❌ Error toggling drink:', error);
     res.status(500).json({ error: 'Internal server error' });
   }
 });
@@ -798,13 +924,168 @@ app.get('/api/drinks', (req, res) => {
 // Orders endpoint
 app.get('/api/orders', (req, res) => {
   try {
-    res.json([
-      { id: 1, total_amount: 650, status: 'completed', created_at: '2024-10-25T18:30:00Z' },
-      { id: 2, total_amount: 1200, status: 'new', created_at: '2024-10-25T19:15:00Z' },
-      { id: 3, total_amount: 450, status: 'taken', created_at: '2024-10-26T20:00:00Z' }
-    ]);
+    const db = require('../database/init');
+    const sql = `
+      SELECT o.*, 
+        (
+          SELECT json_group_array(json_object(
+            'drink_id', oi.drink_id,
+            'quantity', oi.quantity,
+            'price', oi.price
+          ))
+          FROM order_items oi WHERE oi.order_id = o.id
+        ) as items
+      FROM orders o ORDER BY o.created_at DESC
+    `;
+    db.all(sql, [], (err, rows) => {
+      if (err) return res.status(500).json({ error: 'Database error' });
+      const orders = (rows || []).map(r => ({
+        id: r.id,
+        total_amount: r.total_amount,
+        status: r.status,
+        confirmation_code: r.confirmation_code,
+        created_at: r.created_at,
+        items: r.items ? JSON.parse(r.items) : []
+      }));
+      res.json(orders);
+    });
   } catch (error) {
     console.error('❌ Error fetching orders:', error);
+    res.status(500).json({ error: 'Internal server error' });
+  }
+});
+
+// Contests endpoints
+app.get('/api/contests', (req, res) => {
+  try {
+    const db = require('../database/init');
+    db.all('SELECT * FROM contests ORDER BY start_date DESC', [], (err, rows) => {
+      if (err) return res.status(500).json({ error: 'Database error' });
+      res.json(rows || []);
+    });
+  } catch (error) {
+    console.error('❌ Error fetching contests:', error);
+    res.status(500).json({ error: 'Internal server error' });
+  }
+});
+
+app.post('/api/contests', (req, res) => {
+  try {
+    const { title, description, start_date, end_date, prize, image_url, is_active, link } = req.body;
+    if (!title || !start_date || !end_date) return res.status(400).json({ error: 'Title and dates are required' });
+    const db = require('../database/init');
+    db.run(
+      'INSERT INTO contests (title, description, start_date, end_date, prize, image_url, is_active) VALUES (?, ?, ?, ?, ?, ?, ?)',
+      [title, description || null, start_date, end_date, prize || null, image_url || link || null, is_active ? 1 : 1],
+      function(err) {
+        if (err) return res.status(500).json({ error: 'Database error' });
+        res.json({ id: this.lastID, title, description, start_date, end_date, prize, image_url: image_url || link || null, is_active: is_active ? 1 : 1 });
+      }
+    );
+  } catch (error) {
+    console.error('❌ Error creating contest:', error);
+    res.status(500).json({ error: 'Internal server error' });
+  }
+});
+
+app.put('/api/contests/:id', (req, res) => {
+  try {
+    const { id } = req.params;
+    const { title, description, start_date, end_date, prize, image_url, is_active } = req.body;
+    const db = require('../database/init');
+    db.run(
+      'UPDATE contests SET title = ?, description = ?, start_date = ?, end_date = ?, prize = ?, image_url = ?, is_active = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?',
+      [title, description || null, start_date, end_date, prize || null, image_url || null, is_active ? 1 : 0, id],
+      function(err) {
+        if (err) return res.status(500).json({ error: 'Database error' });
+        res.json({ status: 'success' });
+      }
+    );
+  } catch (error) {
+    console.error('❌ Error updating contest:', error);
+    res.status(500).json({ error: 'Internal server error' });
+  }
+});
+
+// Waiters endpoints
+app.get('/api/waiters', (req, res) => {
+  try {
+    const db = require('../database/init');
+    const sql = `
+      SELECT u.*, (
+        SELECT ws.status FROM waiter_shifts ws 
+        WHERE ws.waiter_id = u.id 
+        ORDER BY ws.start_time DESC LIMIT 1
+      ) as current_status,
+      (
+        SELECT ws.start_time FROM waiter_shifts ws 
+        WHERE ws.waiter_id = u.id AND (ws.end_time IS NULL OR ws.status = 'working')
+        ORDER BY ws.start_time DESC LIMIT 1
+      ) as shift_start
+      FROM users u WHERE u.is_waiter = 1 ORDER BY u.id ASC`;
+    db.all(sql, [], (err, rows) => {
+      if (err) return res.status(500).json({ error: 'Database error' });
+      const result = (rows || []).map(r => ({
+        id: r.id,
+        username: r.username,
+        first_name: r.first_name,
+        last_name: r.last_name,
+        phone: r.phone,
+        photo_url: r.photo_url,
+        is_waiter: !!r.is_waiter,
+        status: r.current_status || 'off',
+        shift_start: r.shift_start || null
+      }));
+      res.json(result);
+    });
+  } catch (error) {
+    console.error('❌ Error fetching waiters:', error);
+    res.status(500).json({ error: 'Internal server error' });
+  }
+});
+
+app.get('/api/waiters/:id', (req, res) => {
+  try {
+    const { id } = req.params;
+    const db = require('../database/init');
+    db.get('SELECT * FROM users WHERE id = ? AND is_waiter = 1', [id], (err, user) => {
+      if (err) return res.status(500).json({ error: 'Database error' });
+      if (!user) return res.status(404).json({ error: 'Not found' });
+      db.all('SELECT * FROM waiter_shifts WHERE waiter_id = ? ORDER BY start_time DESC LIMIT 20', [id], (e2, shifts) => {
+        if (e2) return res.status(500).json({ error: 'Database error' });
+        res.json({ user, shifts: shifts || [] });
+      });
+    });
+  } catch (error) {
+    console.error('❌ Error fetching waiter details:', error);
+    res.status(500).json({ error: 'Internal server error' });
+  }
+});
+
+app.post('/api/waiters/:id/start-shift', (req, res) => {
+  try {
+    const { id } = req.params;
+    const db = require('../database/init');
+    db.run('INSERT INTO waiter_shifts (waiter_id, status) VALUES (?, ?)', [id, 'working'], function(err){
+      if (err) return res.status(500).json({ error: 'Database error' });
+      res.json({ status: 'success', shift_id: this.lastID });
+    });
+  } catch (error) {
+    console.error('❌ Error starting shift:', error);
+    res.status(500).json({ error: 'Internal server error' });
+  }
+});
+
+app.post('/api/waiters/:id/end-shift', (req, res) => {
+  try {
+    const { id } = req.params;
+    const db = require('../database/init');
+    db.run("UPDATE waiter_shifts SET status = 'off', end_time = CURRENT_TIMESTAMP WHERE waiter_id = ? AND (end_time IS NULL OR status = 'working')", [id], function(err){
+      if (err) return res.status(500).json({ error: 'Database error' });
+      res.json({ status: 'success' });
+    });
+  } catch (error) {
+    console.error('❌ Error ending shift:', error);
     res.status(500).json({ error: 'Internal server error' });
   }
 });
