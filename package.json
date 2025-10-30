@@ -11,7 +11,10 @@
     "create-super-admin": "node database/create-super-admin.js",
     "install:all": "npm install && cd mini-app && npm install && cd ../admin-panel && npm install",
     "build": "echo 'No build step required'",
-    "vercel-build": "npm run setup"
+    "vercel-build": "npm run setup",
+    "webhook:set": "node scripts/setWebhook.js",
+    "webhook:get": "node scripts/getWebhookInfo.js",
+    "webhook:delete": "node scripts/deleteWebhook.js"
   },
   "dependencies": {
     "telegraf": "^4.15.6",
