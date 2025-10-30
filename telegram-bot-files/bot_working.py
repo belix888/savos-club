@@ -14,6 +14,7 @@ from typing import Dict, Any, Optional
 
 from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup, WebAppInfo, ReplyKeyboardMarkup, KeyboardButton
 from telegram.ext import Application, CommandHandler, ContextTypes, MessageHandler, filters
+from telegram.request import HTTPXRequest
 from dotenv import load_dotenv
 
 # Загрузка переменных окружения
@@ -231,7 +232,23 @@ class SavosBotWorking:
         connection_result = self.website.check_connection()
         logger.info(f"🌐 Статус сайта: {connection_result.get('status')}")
         
-        self.application = Application.builder().token(self.bot_token).build()
+        # Отключаем использование системных прокси у httpx клиента Telegram
+        httpx_request = HTTPXRequest(
+            read_timeout=20,
+            write_timeout=20,
+            connect_timeout=20,
+            pool_timeout=20,
+            http_version="1.1",
+            trust_env=False,   # критично: не брать HTTP(S)_PROXY из окружения
+            proxies=None
+        )
+        self.application = (
+            Application
+            .builder()
+            .token(self.bot_token)
+            .request(httpx_request)
+            .build()
+        )
         
         # Регистрация обработчиков
         self.application.add_handler(CommandHandler("start", self.start))
@@ -571,7 +588,10 @@ class SavosBotWorking:
         # Удаляем webhook, если он активен, чтобы polling начал принимать апдейты
         try:
             import requests
-            requests.post(
+            session = requests.Session()
+            session.trust_env = False
+            session.proxies = {}
+            session.post(
                 f"https://api.telegram.org/bot{self.bot_token}/deleteWebhook",
                 params={"drop_pending_updates": True},
                 timeout=10
