@@ -568,6 +568,17 @@ class SavosBotWorking:
     def run(self):
         """Запуск бота"""
         logger.info("🚀 Запуск SavosBot...")
+        # Удаляем webhook, если он активен, чтобы polling начал принимать апдейты
+        try:
+            import requests
+            requests.post(
+                f"https://api.telegram.org/bot{self.bot_token}/deleteWebhook",
+                params={"drop_pending_updates": True},
+                timeout=10
+            )
+            logger.info("🧹 Webhook удалён (если был включен)")
+        except Exception as e:
+            logger.warning(f"⚠️ Не удалось удалить webhook: {e}")
         
         # Синхронизируем существующих пользователей
         self.sync_existing_users()
