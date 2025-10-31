@@ -2119,30 +2119,69 @@
                 return;
             }
 
+            // Блокируем кнопку во время выполнения
+            const buttons = document.querySelectorAll(`[onclick*="takeOrder(${orderId})"]`);
+            buttons.forEach(btn => {
+                btn.disabled = true;
+                btn.textContent = '⏳ Обработка...';
+            });
+
             try {
+                console.log('✋ Взятие заказа #' + orderId + ' в работу...');
                 const response = await fetch(`/api/orders/${orderId}/take`, {
                     method: 'POST',
                     headers: {
-                        'Authorization': `Bearer ${authToken}`
+                        'Authorization': `Bearer ${authToken}`,
+                        'Content-Type': 'application/json'
                     }
                 });
 
                 const data = await response.json();
+                console.log('📥 Ответ от сервера:', data);
+
                 if (response.ok) {
                     // Уведомление о взятии заказа
                     if (tg && tg.HapticFeedback && tg.HapticFeedback.notificationOccurred) {
                         tg.HapticFeedback.notificationOccurred('success');
                     }
-                    console.log('✅ Заказ взят в работу');
-                    loadWaiterOrders();
-                    // Обновляем список активных заказов
-                    loadWaiterActiveOrders();
+                    
+                    console.log('✅ Заказ #' + orderId + ' успешно взят в работу');
+                    
+                    // Сначала обновляем список активных заказов (чтобы взятый заказ сразу появился)
+                    await loadWaiterActiveOrders();
+                    
+                    // Потом обновляем список доступных заказов (убираем взятый заказ)
+                    await loadWaiterOrders();
+                    
+                    // Показываем активные заказы
+                    const activeOrdersSection = document.getElementById('waiter-active-orders-section');
+                    if (activeOrdersSection) {
+                        activeOrdersSection.style.display = 'block';
+                    }
+                    
+                    // Показываем сообщение об успехе
+                    console.log('✅ Списки заказов обновлены');
                 } else {
+                    console.error('❌ Ошибка взятия заказа:', response.status, data);
+                    
+                    // Разблокируем кнопки
+                    buttons.forEach(btn => {
+                        btn.disabled = false;
+                        btn.innerHTML = '✋ Взять заказ';
+                    });
+                    
                     showError(data.error || 'Ошибка взятия заказа');
                 }
             } catch (error) {
-                console.error('Ошибка взятия заказа:', error);
-                showError('Ошибка взятия заказа');
+                console.error('❌ Ошибка при взятии заказа:', error);
+                
+                // Разблокируем кнопки
+                buttons.forEach(btn => {
+                    btn.disabled = false;
+                    btn.innerHTML = '✋ Взять заказ';
+                });
+                
+                showError('Ошибка взятия заказа: ' + (error.message || 'Неизвестная ошибка'));
             }
         }
 
@@ -2412,7 +2451,7 @@
                             <span style="color: rgba(255,255,255,0.6); font-size: 12px;">
                                 📅 ${new Date(order.created_at).toLocaleString('ru-RU')}
                             </span>
-                            <button class="btn" style="padding: 8px 16px; font-size: 14px; background: #22c55e;" onclick="event.stopPropagation(); completeOrder(${order.id})">
+                            <button class="btn" style="padding: 8px 16px; font-size: 14px; background: #22c55e;" onclick="event.stopPropagation(); completeOrder(${order.id})" id="complete-btn-${order.id}">
                                 ✅ Завершить заказ
                             </button>
                         </div>
