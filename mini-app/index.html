@@ -1655,11 +1655,12 @@
                     }
                 }
                 
-                // Обновляем видимость вкладки официанта
+                // Обновляем видимость вкладки официанта ПОСЛЕ обновления currentUser
+                console.log('🔄 Вызов updateWaiterTabVisibility после loadProfile');
                 updateWaiterTabVisibility();
                 
                 // Если пользователь - официант, запускаем автообновление заказов
-                if (user.is_waiter) {
+                if (user.is_waiter || currentUser.is_waiter) {
                     startWaiterOrdersAutoRefresh();
                 }
             } catch (error) {
@@ -1794,10 +1795,19 @@
         // Показать вкладку официанта, если пользователь является официантом
         function updateWaiterTabVisibility() {
             const waiterTab = document.getElementById('waiter-tab');
-            if (waiterTab && currentUser && currentUser.is_waiter) {
-                waiterTab.style.display = 'block';
-            } else if (waiterTab) {
-                waiterTab.style.display = 'none';
+            console.log('🔍 updateWaiterTabVisibility:', {
+                waiterTab: !!waiterTab,
+                currentUser: !!currentUser,
+                is_waiter: currentUser?.is_waiter,
+                currentUser_data: currentUser
+            });
+            
+            if (waiterTab && currentUser && (currentUser.is_waiter === true || currentUser.is_waiter === 1)) {
+                waiterTab.style.display = 'flex';
+                console.log('✅ Вкладка официанта показана');
+            } else {
+                if (waiterTab) waiterTab.style.display = 'none';
+                console.log('❌ Вкладка официанта скрыта');
             }
         }
 
@@ -2294,13 +2304,25 @@
 
         // Переключение вкладок с проверкой доступа
         async function switchTab(tabName) {
-            // Проверяем доступ к разделу (кроме профиля)
-            if (tabName !== 'profile') {
+            console.log('🔄 Переключение на вкладку:', tabName);
+            
+            // Проверяем доступ к разделу (кроме профиля и официанта)
+            if (tabName !== 'profile' && tabName !== 'waiter') {
                 const hasAccess = await checkSectionAccess(tabName);
+                console.log(`🔐 Проверка доступа к ${tabName}:`, hasAccess);
                 
                 if (!hasAccess) {
                     showBlockedMessage(tabName);
                     return; // Не переключаем вкладку
+                }
+            }
+            
+            // Для вкладки официанта проверяем, что пользователь является официантом
+            if (tabName === 'waiter') {
+                if (!currentUser || !currentUser.is_waiter) {
+                    console.warn('⚠️ Пользователь не является официантом');
+                    showError('У вас нет доступа к панели официанта');
+                    return;
                 }
             }
             
