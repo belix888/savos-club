@@ -1942,47 +1942,91 @@
             }
         }
 
-        // Загрузить заказы для официанта
+        // Загрузить заказы для официанта (с fallback на основной endpoint)
         async function loadWaiterOrders() {
             if (!authToken) {
                 console.warn('⚠️ Нет токена авторизации');
                 return;
             }
 
+            const ordersList = document.getElementById('waiter-orders-list');
+            if (!ordersList) {
+                console.error('❌ Элемент waiter-orders-list не найден');
+                return;
+            }
+
             try {
                 console.log('📋 Загрузка новых заказов для официанта...');
-                const response = await fetch('/api/waiters/orders', {
-                    headers: {
-                        'Authorization': `Bearer ${authToken}`
-                    }
-                });
+                let orders = [];
+                let ordersData = null;
+                
+                // Пробуем использовать специализированный endpoint
+                try {
+                    const response = await fetch('/api/waiters/orders', {
+                        headers: {
+                            'Authorization': `Bearer ${authToken}`
+                        }
+                    });
 
-                if (!response.ok) {
-                    const error = await response.json().catch(() => ({ error: 'Неизвестная ошибка' }));
-                    console.error('❌ Ошибка загрузки заказов:', response.status, error);
-                    
-                    // Показываем более понятное сообщение об ошибке
-                    let errorMessage = error.error || 'Ошибка загрузки заказов';
-                    if (response.status === 400 && errorMessage.includes('смен')) {
-                        errorMessage = '⚠️ ' + errorMessage;
+                    if (response.ok) {
+                        ordersData = await response.json();
+                        orders = Array.isArray(ordersData) ? ordersData : [];
+                        console.log('✅ Получено заказов через /api/waiters/orders:', orders.length);
+                    } else if (response.status === 404) {
+                        // Если endpoint не найден, используем fallback - получаем все заказы и фильтруем
+                        console.log('⚠️ /api/waiters/orders недоступен, используем fallback');
+                        const fallbackResponse = await fetch('/api/orders', {
+                            headers: {
+                                'Authorization': `Bearer ${authToken}`
+                            }
+                        });
+                        
+                        if (fallbackResponse.ok) {
+                            const allOrders = await fallbackResponse.json();
+                            // Фильтруем только новые заказы, которые еще не взяты
+                            orders = Array.isArray(allOrders) ? allOrders.filter(order => 
+                                order.status === 'new' && (!order.waiter_id || order.waiter_id === 0)
+                            ) : [];
+                            console.log('✅ Получено заказов через fallback /api/orders:', orders.length);
+                        } else {
+                            throw new Error('Fallback endpoint также недоступен');
+                        }
+                    } else {
+                        const error = await response.json().catch(() => ({ error: 'Неизвестная ошибка' }));
+                        console.error('❌ Ошибка загрузки заказов:', response.status, error);
+                        
+                        let errorMessage = error.error || 'Ошибка загрузки заказов';
+                        if (response.status === 400 && errorMessage.includes('смен')) {
+                            errorMessage = '⚠️ ' + errorMessage;
+                        }
+                        
+                        ordersList.innerHTML = `<div style="padding: 15px; background: rgba(239, 68, 68, 0.2); border: 1px solid #ef4444; border-radius: 10px; color: #ef4444; text-align: center;">${errorMessage}</div>`;
+                        return;
                     }
+                } catch (fetchError) {
+                    console.warn('⚠️ Ошибка при запросе к /api/waiters/orders, пробуем fallback:', fetchError);
                     
-                    document.getElementById('waiter-orders-list').innerHTML = `<div style="padding: 15px; background: rgba(239, 68, 68, 0.2); border: 1px solid #ef4444; border-radius: 10px; color: #ef4444; text-align: center;">${errorMessage}</div>`;
-                    return;
-                }
-
-                const ordersData = await response.json();
-                console.log('✅ Получено заказов:', ordersData);
-                
-                // Убеждаемся, что это массив
-                const orders = Array.isArray(ordersData) ? ordersData : [];
-                console.log('📦 Массив заказов:', orders.length, orders);
-                
-                const ordersList = document.getElementById('waiter-orders-list');
-                
-                if (!ordersList) {
-                    console.error('❌ Элемент waiter-orders-list не найден');
-                    return;
+                    // Fallback: получаем все заказы и фильтруем
+                    try {
+                        const fallbackResponse = await fetch('/api/orders', {
+                            headers: {
+                                'Authorization': `Bearer ${authToken}`
+                            }
+                        });
+                        
+                        if (fallbackResponse.ok) {
+                            const allOrders = await fallbackResponse.json();
+                            orders = Array.isArray(allOrders) ? allOrders.filter(order => 
+                                order.status === 'new' && (!order.waiter_id || order.waiter_id === 0)
+                            ) : [];
+                            console.log('✅ Получено заказов через fallback:', orders.length);
+                        } else {
+                            throw fallbackResponse;
+                        }
+                    } catch (fallbackError) {
+                        console.error('❌ Ошибка fallback:', fallbackError);
+                        throw fallbackError;
+                    }
                 }
 
                 if (orders.length === 0) {
@@ -1991,28 +2035,65 @@
                 }
 
                 console.log('🎨 Рендерим заказы:', orders.length);
-                ordersList.innerHTML = orders.map(order => {
+                
+                // Для каждого заказа получаем детали, если они не пришли
+                const ordersWithDetails = await Promise.all(orders.map(async (order) => {
+                    // Если у заказа нет items_text, получаем детали заказа
+                    if (!order.items_text && order.id) {
+                        try {
+                            const orderDetailResponse = await fetch(`/api/orders/${order.id}`, {
+                                headers: {
+                                    'Authorization': `Bearer ${authToken}`
+                                }
+                            });
+                            if (orderDetailResponse.ok) {
+                                const orderDetail = await orderDetailResponse.json();
+                                if (orderDetail.items && Array.isArray(orderDetail.items)) {
+                                    order.items_text = orderDetail.items.map(item => 
+                                        `${item.drink_name || 'Напиток'} (x${item.quantity} - ${(item.price * item.quantity).toFixed(2)} фиш.)`
+                                    ).join(', ');
+                                }
+                            }
+                        } catch (e) {
+                            console.warn('Не удалось получить детали заказа:', e);
+                        }
+                    }
+                    return order;
+                }));
+
+                ordersList.innerHTML = ordersWithDetails.map(order => {
                     if (!order || !order.id) {
                         console.warn('⚠️ Некорректный заказ:', order);
                         return '';
                     }
+                    
+                    const userName = order.user_first_name || order.user?.first_name || '';
+                    const userLastName = order.user_last_name || order.user?.last_name || '';
+                    const userUsername = order.user_username || order.user?.username || '';
+                    const displayName = `${userName} ${userLastName}`.trim() || 'Клиент';
+                    const displayUsername = userUsername ? `@${userUsername}` : '';
+                    
                     return `
-                    <div class="order-card" style="background: rgba(255,255,255,0.05); padding: 15px; border-radius: 12px; margin-bottom: 15px; cursor: pointer;" onclick="openWaiterOrderModal(${order.id})">
+                    <div class="order-card" style="background: rgba(255,255,255,0.05); padding: 15px; border-radius: 12px; margin-bottom: 15px; border: 1px solid rgba(239, 68, 68, 0.3); cursor: pointer;" onclick="openWaiterOrderModal(${order.id})">
                         <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px;">
                             <div>
-                                <div style="font-weight: 600; color: #ef4444; font-size: 18px;">Заказ #${order.id}</div>
+                                <div style="font-weight: 600; color: #ef4444; font-size: 18px; margin-bottom: 4px;">Заказ #${order.id}</div>
                                 <div style="color: rgba(255,255,255,0.7); font-size: 14px;">
-                                    ${order.user_first_name || ''} ${order.user_last_name || ''} ${order.user_username ? '@' + order.user_username : ''}
+                                    👤 ${displayName} ${displayUsername}
                                 </div>
                             </div>
-                            <span style="font-weight: 700; color: #22c55e; font-size: 16px;">${order.total_amount} фиш.</span>
+                            <div style="text-align: right;">
+                                <span style="font-weight: 700; color: #22c55e; font-size: 18px;">${parseFloat(order.total_amount || 0).toFixed(2)} фиш.</span>
+                            </div>
                         </div>
-                        <div style="color: rgba(255,255,255,0.8); margin-bottom: 10px; font-size: 14px;">
-                            ${order.items_text || 'Нет позиций'}
+                        <div style="background: rgba(255,255,255,0.03); padding: 10px; border-radius: 8px; margin-bottom: 10px;">
+                            <div style="color: rgba(255,255,255,0.9); font-size: 14px; line-height: 1.6;">
+                                ${order.items_text || '📋 Нет позиций'}
+                            </div>
                         </div>
                         <div style="display: flex; justify-content: space-between; align-items: center;">
                             <span style="color: rgba(255,255,255,0.6); font-size: 12px;">
-                                📅 ${new Date(order.created_at).toLocaleString('ru-RU')}
+                                📅 ${new Date(order.created_at || Date.now()).toLocaleString('ru-RU')}
                             </span>
                             <button class="btn" style="padding: 8px 16px; font-size: 14px;" onclick="event.stopPropagation(); takeOrder(${order.id})">
                                 ✋ Взять заказ
@@ -2024,8 +2105,10 @@
                 
                 console.log('✅ Заказы отображены');
             } catch (error) {
-                console.error('Ошибка загрузки заказов для официанта:', error);
-                document.getElementById('waiter-orders-list').innerHTML = '<div class="error">Ошибка загрузки заказов</div>';
+                console.error('❌ Ошибка загрузки заказов для официанта:', error);
+                ordersList.innerHTML = `<div class="error" style="padding: 15px; background: rgba(239, 68, 68, 0.2); border: 1px solid #ef4444; border-radius: 10px; color: #ef4444; text-align: center;">
+                    Ошибка загрузки заказов: ${error.message || 'Неизвестная ошибка'}
+                </div>`;
             }
         }
 
