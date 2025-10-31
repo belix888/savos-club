@@ -4,7 +4,10 @@ const fs = require('fs');
 const os = require('os');
 
 // Определяем, используем ли мы Turso или локальный SQLite
-const isTurso = process.env.TURSO_DATABASE_URL && process.env.TURSO_AUTH_TOKEN;
+// Поддерживаем оба варианта имен переменных (TURSO_URL или TURSO_DATABASE_URL)
+const tursoUrl = process.env.TURSO_URL || process.env.TURSO_DATABASE_URL;
+const tursoToken = process.env.TURSO_AUTH_TOKEN;
+const isTurso = tursoUrl && tursoToken;
 let db;
 
 if (isTurso) {
@@ -12,8 +15,8 @@ if (isTurso) {
   const { createClient } = require('@libsql/client');
   
   const tursoClient = createClient({
-    url: process.env.TURSO_DATABASE_URL,
-    authToken: process.env.TURSO_AUTH_TOKEN,
+    url: tursoUrl,
+    authToken: tursoToken,
   });
   
   console.log('✅ Using Turso database (libSQL)');
