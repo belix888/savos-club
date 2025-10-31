@@ -4,9 +4,15 @@ const fs = require('fs');
 const os = require('os');
 
 // Определяем, используем ли мы Turso или локальный SQLite
-// Поддерживаем оба варианта имен переменных (TURSO_URL или TURSO_DATABASE_URL)
-const tursoUrl = process.env.TURSO_URL || process.env.TURSO_DATABASE_URL;
-const tursoToken = process.env.TURSO_AUTH_TOKEN;
+// Поддерживаем все варианты имен переменных:
+// - TURSO_URL или TURSO_DATABASE_URL (стандартные)
+// - turso_TURSO_URL или turso_TURSO_DATABASE_URL (с префиксом turso_)
+const tursoUrl = process.env.TURSO_URL || 
+                 process.env.TURSO_DATABASE_URL || 
+                 process.env.turso_TURSO_URL || 
+                 process.env.turso_TURSO_DATABASE_URL;
+const tursoToken = process.env.TURSO_AUTH_TOKEN || 
+                   process.env.turso_TURSO_AUTH_TOKEN;
 const isTurso = tursoUrl && tursoToken;
 let db;
 
