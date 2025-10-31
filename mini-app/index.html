@@ -2095,7 +2095,7 @@
                             <span style="color: rgba(255,255,255,0.6); font-size: 12px;">
                                 📅 ${new Date(order.created_at || Date.now()).toLocaleString('ru-RU')}
                             </span>
-                            <button class="btn" style="padding: 8px 16px; font-size: 14px;" onclick="event.stopPropagation(); takeOrder(${order.id})">
+                            <button class="btn" style="padding: 8px 16px; font-size: 14px;" onclick="event.stopPropagation(); takeOrder(${order.id})" id="take-btn-${order.id}">
                                 ✋ Взять заказ
                             </button>
                         </div>
@@ -2119,9 +2119,12 @@
                 return;
             }
 
-            // Блокируем кнопку во время выполнения
-            const buttons = document.querySelectorAll(`[onclick*="takeOrder(${orderId})"]`);
-            buttons.forEach(btn => {
+            // Блокируем кнопки во время выполнения
+            const takeBtn = document.getElementById(`take-btn-${orderId}`);
+            const modalTakeBtn = document.getElementById(`modal-take-btn-${orderId}`);
+            const buttonsToBlock = [takeBtn, modalTakeBtn].filter(btn => btn !== null);
+            
+            buttonsToBlock.forEach(btn => {
                 btn.disabled = true;
                 btn.textContent = '⏳ Обработка...';
             });
@@ -2165,9 +2168,11 @@
                     console.error('❌ Ошибка взятия заказа:', response.status, data);
                     
                     // Разблокируем кнопки
-                    buttons.forEach(btn => {
-                        btn.disabled = false;
-                        btn.innerHTML = '✋ Взять заказ';
+                    buttonsToBlock.forEach(btn => {
+                        if (btn) {
+                            btn.disabled = false;
+                            btn.innerHTML = '✋ Взять заказ';
+                        }
                     });
                     
                     showError(data.error || 'Ошибка взятия заказа');
@@ -2176,9 +2181,11 @@
                 console.error('❌ Ошибка при взятии заказа:', error);
                 
                 // Разблокируем кнопки
-                buttons.forEach(btn => {
-                    btn.disabled = false;
-                    btn.innerHTML = '✋ Взять заказ';
+                buttonsToBlock.forEach(btn => {
+                    if (btn) {
+                        btn.disabled = false;
+                        btn.innerHTML = '✋ Взять заказ';
+                    }
                 });
                 
                 showError('Ошибка взятия заказа: ' + (error.message || 'Неизвестная ошибка'));
