@@ -1748,11 +1748,17 @@
             }
         }
 
+        // Объявляем переменную для обработчика заранее
+        let editUserModalSaveHandler = null;
+
         // Обработчик формы редактирования пользователя
         document.addEventListener('DOMContentLoaded', function() {
             const editForm = document.getElementById('edit-user-form');
             if (editForm) {
-                editUserModalSaveHandler && editForm.removeEventListener('submit', editUserModalSaveHandler);
+                // Удаляем предыдущий обработчик, если он существует
+                if (editUserModalSaveHandler) {
+                    editForm.removeEventListener('submit', editUserModalSaveHandler);
+                }
                 editUserModalSaveHandler = async function(e) {
                     e.preventDefault();
                     
