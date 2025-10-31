@@ -2417,6 +2417,12 @@
         // Инициализация при загрузке
         document.addEventListener('DOMContentLoaded', () => {
             initApp();
+            // Настраиваем обработчики вкладок после инициализации приложения
+            setTimeout(() => {
+                setupTabHandlers();
+                // Обновляем видимость вкладки официанта после загрузки данных
+                updateWaiterTabVisibility();
+            }, 800);
             // Запускаем автообновление данных пользователя
             startUserDataAutoRefresh();
         });
