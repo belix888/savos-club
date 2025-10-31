@@ -2147,48 +2147,104 @@ app.get('/api/waiters/orders', (req, res) => {
             return res.status(400).json({ error: 'Ваша смена завершена. Начните новую смену, чтобы получать заказы.' });
           }
           
-          // Получаем все заказы со статусом 'new', которые еще не взяты никаким официантом
-          // Это включает заказы, созданные до начала текущей смены
-          const query = `
-          SELECT 
-            o.*,
-            u.first_name as user_first_name,
-            u.last_name as user_last_name,
-            u.username as user_username,
-            u.phone as user_phone,
-            GROUP_CONCAT(
-              d.name || ' (x' || oi.quantity || ' - ' || oi.price * oi.quantity || ' фиш.)'
-            ) as items_text,
-            COUNT(oi.id) as items_count
-          FROM orders o
-          JOIN users u ON o.user_id = u.id
-          LEFT JOIN order_items oi ON o.id = oi.order_id
-          LEFT JOIN drinks d ON oi.drink_id = d.id
-          WHERE o.status = 'new' AND (o.waiter_id IS NULL OR o.waiter_id = 0)
-          GROUP BY o.id
-          ORDER BY o.created_at ASC
-        `;
-        
-        db.all(query, [], (err, orders) => {
-          if (err) {
-            console.error('❌ Error fetching waiter orders:', err);
-            return res.status(500).json({ error: 'Database error' });
-          }
+          // Сначала проверим, есть ли вообще заказы со статусом 'new'
+          db.get('SELECT COUNT(*) as count FROM orders WHERE status = ?', ['new'], (countErr, countRow) => {
+            if (countErr) {
+              console.error('❌ Error counting orders:', countErr);
+            } else {
+              console.log(`📊 Всего заказов со статусом 'new' в БД:`, countRow ? countRow.count : 0);
+            }
+            
+            // Получаем все заказы со статусом 'new', которые еще не взяты никаким официантом
+            // Это включает заказы, созданные до начала текущей смены
+            const query = `
+            SELECT 
+              o.id,
+              o.user_id,
+              o.waiter_id,
+              o.status,
+              o.total_amount,
+              o.created_at,
+              o.updated_at,
+              u.first_name as user_first_name,
+              u.last_name as user_last_name,
+              u.username as user_username,
+              u.phone as user_phone
+            FROM orders o
+            LEFT JOIN users u ON o.user_id = u.id
+            WHERE o.status = ? AND (o.waiter_id IS NULL OR o.waiter_id = 0)
+            ORDER BY o.created_at ASC
+          `;
           
-          console.log(`📋 Найдено новых заказов для официанта ${userId}:`, orders ? orders.length : 0);
-          
-          // Получаем детали позиций для каждого заказа
-          const ordersWithItems = (orders || []).map(order => {
-            return {
-              ...order,
-              items_text: order.items_text || '',
-              items_count: order.items_count || 0
-            };
+          db.all(query, ['new'], (err, orders) => {
+            if (err) {
+              console.error('❌ Error fetching waiter orders:', err);
+              return res.status(500).json({ error: 'Database error', details: err.message });
+            }
+            
+            console.log(`📋 Найдено доступных заказов для официанта ${userId}:`, orders ? orders.length : 0);
+            if (orders && orders.length > 0) {
+              console.log('📋 Пример заказа:', JSON.stringify(orders[0], null, 2));
+            }
+            
+            // Теперь для каждого заказа получаем позиции
+            if (!orders || orders.length === 0) {
+              return res.json([]);
+            }
+            
+            // Получаем позиции для всех заказов сразу
+            const orderIds = orders.map(o => o.id);
+            const placeholders = orderIds.map(() => '?').join(',');
+            
+            db.all(`
+              SELECT 
+                oi.order_id,
+                oi.drink_id,
+                oi.quantity,
+                oi.price,
+                d.name as drink_name
+              FROM order_items oi
+              LEFT JOIN drinks d ON oi.drink_id = d.id
+              WHERE oi.order_id IN (${placeholders})
+            `, orderIds, (itemsErr, items) => {
+              if (itemsErr) {
+                console.error('❌ Error fetching order items:', itemsErr);
+                // Возвращаем заказы без позиций
+                return res.json(orders.map(order => ({
+                  ...order,
+                  items_text: '',
+                  items_count: 0
+                })));
+              }
+              
+              // Группируем позиции по заказам
+              const itemsByOrder = {};
+              (items || []).forEach(item => {
+                if (!itemsByOrder[item.order_id]) {
+                  itemsByOrder[item.order_id] = [];
+                }
+                itemsByOrder[item.order_id].push(item);
+              });
+              
+              // Формируем финальный ответ
+              const ordersWithItems = orders.map(order => {
+                const orderItems = itemsByOrder[order.id] || [];
+                const itemsText = orderItems
+                  .map(item => `${item.drink_name || 'Напиток #' + item.drink_id} (x${item.quantity} - ${(item.price * item.quantity).toFixed(2)} фиш.)`)
+                  .join(', ');
+                
+                return {
+                  ...order,
+                  items_text: itemsText,
+                  items_count: orderItems.length
+                };
+              });
+              
+              console.log('✅ Возвращаем заказы с позициями:', ordersWithItems.length);
+              res.json(ordersWithItems);
+            });
           });
-          
-          console.log('✅ Возвращаем заказы:', ordersWithItems.length);
-          res.json(ordersWithItems);
-        });
+          });
       });
     });
   } catch (error) {
