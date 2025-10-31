@@ -1456,7 +1456,7 @@
                 }
                 
                 // Получаем актуальные данные пользователя из API, если доступно
-                let user = currentUser;
+                let user = { ...currentUser }; // Копируем currentUser
                 try {
                     const response = await fetch('/api/session', {
                         headers: { 'Authorization': `Bearer ${authToken}` }
@@ -1465,16 +1465,35 @@
                         const data = await response.json();
                         console.log('📥 Данные из /api/session:', data);
                         if (data && data.user) {
-                            user = data.user;
-                            // Обновляем currentUser со всеми данными
-                            currentUser.is_waiter = !!user.is_waiter;
-                            currentUser.is_resident = !!user.is_resident;
-                            currentUser.is_admin = !!user.is_admin;
-                            currentUser.is_super_admin = !!user.is_super_admin;
-                            currentUser.chips = user.chips || 0;
-                            currentUser.first_name = user.first_name;
-                            currentUser.last_name = user.last_name;
-                            console.log('✅ Обновлен currentUser:', {
+                            // Обновляем currentUser со всеми данными из API
+                            currentUser.is_waiter = !!data.user.is_waiter;
+                            currentUser.is_resident = !!data.user.is_resident;
+                            currentUser.is_admin = !!data.user.is_admin;
+                            currentUser.is_super_admin = !!data.user.is_super_admin;
+                            currentUser.chips = data.user.chips || 0;
+                            currentUser.first_name = data.user.first_name;
+                            currentUser.last_name = data.user.last_name;
+                            currentUser.username = data.user.username;
+                            currentUser.phone = data.user.phone;
+                            currentUser.photo_url = data.user.photo_url;
+                            
+                            // Используем актуальные данные из API для отображения
+                            user = {
+                                ...currentUser,
+                                is_waiter: !!data.user.is_waiter,
+                                is_resident: !!data.user.is_resident,
+                                is_admin: !!data.user.is_admin,
+                                is_super_admin: !!data.user.is_super_admin
+                            };
+                            
+                            // Обновляем кеш
+                            try {
+                                localStorage.setItem('currentUserCache', JSON.stringify(currentUser));
+                            } catch (e) {
+                                console.warn('Could not update user cache:', e);
+                            }
+                            
+                            console.log('✅ Обновлен currentUser из API:', {
                                 is_waiter: currentUser.is_waiter,
                                 is_resident: currentUser.is_resident,
                                 is_admin: currentUser.is_admin
@@ -1485,7 +1504,16 @@
                     }
                 } catch (e) {
                     console.warn('Could not refresh user data, using cached:', e);
-                    // Используем кешированные данные
+                    // Используем кешированные данные из currentUser
+                    user = { ...currentUser };
+                }
+                
+                // Используем актуальные данные из currentUser (на случай если API не обновил)
+                if (currentUser.is_waiter !== undefined) {
+                    user.is_waiter = !!currentUser.is_waiter;
+                }
+                if (currentUser.is_resident !== undefined) {
+                    user.is_resident = !!currentUser.is_resident;
                 }
                 
                 // Логируем для отладки
@@ -1493,7 +1521,12 @@
                     id: user.id,
                     is_waiter: user.is_waiter,
                     is_resident: user.is_resident,
-                    name: `${user.first_name} ${user.last_name || ''}`
+                    name: `${user.first_name || ''} ${user.last_name || ''}`
+                });
+                console.log('🔍 Проверка отображения плашки официанта:', {
+                    'user.is_waiter': user.is_waiter,
+                    'currentUser.is_waiter': currentUser.is_waiter,
+                    'будет показана плашка': !!user.is_waiter
                 });
                 
                 // Загружаем реальные данные из БД
