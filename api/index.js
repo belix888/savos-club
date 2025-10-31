@@ -2508,7 +2508,7 @@ app.get('/api/waiters/orders/active', (req, res) => {
         JOIN users u ON o.user_id = u.id
         LEFT JOIN order_items oi ON o.id = oi.order_id
         LEFT JOIN drinks d ON oi.drink_id = d.id
-        WHERE o.waiter_id = ? AND o.status = 'taken'
+        WHERE o.waiter_id = ? AND (o.status = 'taken' OR (o.status = 'new' AND o.waiter_id IS NOT NULL AND o.waiter_id != 0))
         GROUP BY o.id
         ORDER BY o.created_at ASC
       `;

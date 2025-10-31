@@ -2417,10 +2417,17 @@
                         
                         if (fallbackResponse.ok) {
                             const allOrders = await fallbackResponse.json();
+                            console.log('📦 Все заказы для фильтрации:', allOrders.length);
+                            console.log('👤 Текущий официант ID:', currentUser.id);
+                            
                             // Фильтруем заказы, взятые текущим официантом
-                            orders = Array.isArray(allOrders) ? allOrders.filter(order => 
-                                order.waiter_id === currentUser.id && (order.status === 'taken' || order.status === 'new')
-                            ) : [];
+                            orders = Array.isArray(allOrders) ? allOrders.filter(order => {
+                                const matches = order.waiter_id === currentUser.id && order.status === 'taken';
+                                if (order.waiter_id) {
+                                    console.log(`   Заказ #${order.id}: waiter_id=${order.waiter_id}, status=${order.status}, matches=${matches}`);
+                                }
+                                return matches;
+                            }) : [];
                             console.log('✅ Получено активных заказов через fallback:', orders.length);
                         } else {
                             throw new Error('Fallback endpoint недоступен');
@@ -2445,10 +2452,17 @@
                         
                         if (fallbackResponse.ok) {
                             const allOrders = await fallbackResponse.json();
-                            orders = Array.isArray(allOrders) ? allOrders.filter(order => 
-                                order.waiter_id === currentUser.id && (order.status === 'taken' || order.status === 'new')
-                            ) : [];
-                            console.log('✅ Получено активных заказов через fallback:', orders.length);
+                            console.log('📦 Все заказы для фильтрации (catch):', allOrders.length);
+                            console.log('👤 Текущий официант ID:', currentUser.id);
+                            
+                            orders = Array.isArray(allOrders) ? allOrders.filter(order => {
+                                const matches = order.waiter_id === currentUser.id && order.status === 'taken';
+                                if (order.waiter_id) {
+                                    console.log(`   Заказ #${order.id}: waiter_id=${order.waiter_id}, status=${order.status}, matches=${matches}`);
+                                }
+                                return matches;
+                            }) : [];
+                            console.log('✅ Получено активных заказов через fallback (catch):', orders.length);
                         } else {
                             throw fallbackResponse;
                         }
