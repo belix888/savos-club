@@ -2112,7 +2112,8 @@ app.post('/api/waiters/shift/end', (req, res) => {
 
 // Получение заказов для официанта на смене
 app.get('/api/waiters/orders', (req, res) => {
-  console.log('📋 GET /api/waiters/orders - запрос получен');
+  console.log('📋 ===== GET /api/waiters/orders - запрос получен =====');
+  console.log('   Path:', req.path, 'URL:', req.url);
   try {
     const auth = req.headers.authorization || '';
     if (!auth.startsWith('Bearer ')) {
