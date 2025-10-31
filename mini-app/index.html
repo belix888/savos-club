@@ -1923,7 +1923,10 @@
                             </button>
                         </div>
                     </div>
-                `).join('');
+                `;
+                }).filter(html => html).join('');
+                
+                console.log('✅ Заказы отображены');
             } catch (error) {
                 console.error('Ошибка загрузки заказов для официанта:', error);
                 document.getElementById('waiter-orders-list').innerHTML = '<div class="error">Ошибка загрузки заказов</div>';
