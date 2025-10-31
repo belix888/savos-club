@@ -2281,17 +2281,30 @@
         async function checkSectionAccess(section) {
             try {
                 // Получаем настройки доступа из localStorage (админ сохраняет их там)
-                const sectionAccess = JSON.parse(localStorage.getItem('sectionAccess') || '{}');
+                const sectionAccessStr = localStorage.getItem('sectionAccess');
+                console.log('🔐 Проверка доступа к разделу:', section, 'Настройки:', sectionAccessStr);
                 
-                // Если раздела нет в настройках или он доступен - возвращаем true
-                if (!sectionAccess.hasOwnProperty(section) || sectionAccess[section] === true) {
+                if (!sectionAccessStr) {
+                    console.log('✅ Раздел доступен (нет настроек блокировки)');
+                    return true; // Если настроек нет - раздел доступен по умолчанию
+                }
+                
+                const sectionAccess = JSON.parse(sectionAccessStr);
+                console.log('📋 Парсированные настройки:', sectionAccess);
+                
+                // Если раздела нет в настройках - он доступен по умолчанию
+                if (!sectionAccess.hasOwnProperty(section)) {
+                    console.log('✅ Раздел доступен (нет в настройках)');
                     return true;
                 }
                 
-                return false; // Раздел заблокирован
+                // Проверяем статус: true = доступен, false = заблокирован
+                const hasAccess = sectionAccess[section] === true;
+                console.log(`🔐 Доступ к ${section}:`, hasAccess ? 'разрешен' : 'заблокирован');
+                return hasAccess;
             } catch (error) {
-                console.error('Ошибка проверки доступа:', error);
-                return true; // В случае ошибки разрешаем доступ
+                console.error('❌ Ошибка проверки доступа:', error);
+                return true; // В случае ошибки разрешаем доступ (чтобы не блокировать все разделы)
             }
         }
 
