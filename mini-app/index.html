@@ -1210,11 +1210,12 @@
                     showError(`Недостаточно фишек! Не хватает: ${missing} фиш.`);
                     
                     // Также показываем через Telegram API если доступно
-                    if (tg && tg.showAlert) {
-                        tg.showAlert(errorMsg);
-                    } else {
-                        alert(errorMsg);
+                    // Уведомление об ошибке заказа
+                    console.error('❌ Ошибка заказа:', errorMsg);
+                    if (tg && tg.HapticFeedback && tg.HapticFeedback.notificationOccurred) {
+                        tg.HapticFeedback.notificationOccurred('error');
                     }
+                    alert(errorMsg);
                     
                     // Обновляем профиль чтобы показать актуальный баланс
                     loadProfile();
@@ -1269,20 +1270,22 @@
                     
                     // Показываем уведомление с информацией о списанных фишках
                     const message = `✅ Заказ успешно оформлен!\n\nСписано: ${orderData.total_amount} фиш.\n${orderData.new_balance !== undefined ? `Остаток: ${orderData.new_balance.toFixed(2)} фиш.` : ''}\n\nОфициант скоро подойдет к вашему столику.\nКод подтверждения: ${orderData.confirmation_code}`;
-                    if (tg && tg.showAlert) {
-                        tg.showAlert(message);
-                    } else {
-                        alert(message);
+                    // Уведомление об успехе
+                    console.log('✅ Успех:', message);
+                    if (tg && tg.HapticFeedback && tg.HapticFeedback.notificationOccurred) {
+                        tg.HapticFeedback.notificationOccurred('success');
                     }
+                    alert(message);
                 } else {
                     const error = await response.json();
                     console.error('❌ Ошибка оформления заказа:', error);
                     const errorMsg = error.error || 'Ошибка оформления заказа';
-                    if (tg && tg.showAlert) {
-                        tg.showAlert(errorMsg);
-                    } else {
-                        alert(errorMsg);
+                    // Уведомление об ошибке заказа
+                    console.error('❌ Ошибка заказа:', errorMsg);
+                    if (tg && tg.HapticFeedback && tg.HapticFeedback.notificationOccurred) {
+                        tg.HapticFeedback.notificationOccurred('error');
                     }
+                    alert(errorMsg);
                 }
             } catch (error) {
                 console.error('Ошибка оформления заказа:', error);
@@ -1358,7 +1361,13 @@
                     saveUserActions();
                     
                     // Показываем подтверждение
-                    tg.showAlert(`✅ Место забронировано!\n\nСобытие: ${eventTitle}\nГостей: ${guests}\n${price > 0 ? `Сумма: ${price * parseInt(guests)} ₽` : 'Бесплатно'}`);
+                    // Уведомление о бронировании
+                    const bookingMsg = `✅ Место забронировано!\n\nСобытие: ${eventTitle}\nГостей: ${guests}\n${price > 0 ? `Сумма: ${price * parseInt(guests)} ₽` : 'Бесплатно'}`;
+                    console.log(bookingMsg);
+                    if (tg && tg.HapticFeedback && tg.HapticFeedback.notificationOccurred) {
+                        tg.HapticFeedback.notificationOccurred('success');
+                    }
+                    alert(bookingMsg);
                     
                     // Закрываем модалку если открыта
                     closeEventModal();
@@ -1406,7 +1415,12 @@
                     });
                     saveUserActions();
                     
-                    tg.showAlert('🎯 Ваша заявка на участие принята!');
+                    // Уведомление о принятии заявки
+                    console.log('🎯 Ваша заявка на участие принята!');
+                    if (tg && tg.HapticFeedback && tg.HapticFeedback.notificationOccurred) {
+                        tg.HapticFeedback.notificationOccurred('success');
+                    }
+                    alert('🎯 Ваша заявка на участие принята!');
                     
                     // Обновляем профиль
                     loadProfile();
@@ -1711,10 +1725,33 @@
             }
         }
 
-        // Показать ошибку
+        // Показать ошибку (используем безопасные методы для Telegram WebApp 6.0+)
         function showError(message) {
-            if (tg && tg.showAlert) {
-                tg.showAlert(message);
+            // Всегда показываем в консоли для отладки
+            console.error('❌ Ошибка:', message);
+            
+            // Используем современные методы Telegram WebApp или fallback
+            if (tg) {
+                // Вибрация для обратной связи (доступно в WebApp 6.0+)
+                if (tg.HapticFeedback && tg.HapticFeedback.notificationOccurred) {
+                    try {
+                        tg.HapticFeedback.notificationOccurred('error');
+                    } catch (e) {
+                        // Игнорируем ошибки вибрации
+                    }
+                }
+                // Показываем через встроенное уведомление (если доступно)
+                if (tg.showNotification && typeof tg.showNotification === 'function') {
+                    try {
+                        tg.showNotification(message);
+                    } catch (e) {
+                        // Fallback к alert если showNotification недоступен
+                        alert(message);
+                    }
+                } else {
+                    // Fallback к обычному alert
+                    alert(message);
+                }
             } else {
                 alert(message);
             }
@@ -1798,9 +1835,11 @@
 
                 const data = await response.json();
                 if (response.ok) {
-                    if (tg && tg.showAlert) {
-                        tg.showAlert('✅ Смена начата! Теперь вы будете получать заказы.');
+                    // Уведомление о начале смены
+                    if (tg && tg.HapticFeedback && tg.HapticFeedback.notificationOccurred) {
+                        tg.HapticFeedback.notificationOccurred('success');
                     }
+                    console.log('✅ Смена начата! Теперь вы будете получать заказы.');
                     checkWaiterShift();
                 } else {
                     showError(data.error || 'Ошибка начала смены');
@@ -1832,9 +1871,11 @@
 
                 const data = await response.json();
                 if (response.ok) {
-                    if (tg && tg.showAlert) {
-                        tg.showAlert('✅ Смена завершена');
+                    // Уведомление о завершении смены
+                    if (tg && tg.HapticFeedback && tg.HapticFeedback.notificationOccurred) {
+                        tg.HapticFeedback.notificationOccurred('success');
                     }
+                    console.log('✅ Смена завершена');
                     checkWaiterShift();
                     document.getElementById('waiter-orders-list').innerHTML = '<div class="loading">Загрузка заказов...</div>';
                 } else {
@@ -1950,9 +1991,11 @@
 
                 const data = await response.json();
                 if (response.ok) {
-                    if (tg && tg.showAlert) {
-                        tg.showAlert('✅ Заказ взят в работу');
+                    // Уведомление о взятии заказа
+                    if (tg && tg.HapticFeedback && tg.HapticFeedback.notificationOccurred) {
+                        tg.HapticFeedback.notificationOccurred('success');
                     }
+                    console.log('✅ Заказ взят в работу');
                     loadWaiterOrders();
                     // Обновляем список активных заказов
                     loadWaiterActiveOrders();
@@ -2084,9 +2127,11 @@
 
                 const data = await response.json();
                 if (response.ok) {
-                    if (tg && tg.showAlert) {
-                        tg.showAlert('✅ Заказ завершен');
+                    // Уведомление о завершении заказа
+                    if (tg && tg.HapticFeedback && tg.HapticFeedback.notificationOccurred) {
+                        tg.HapticFeedback.notificationOccurred('success');
                     }
+                    console.log('✅ Заказ завершен');
                     loadWaiterOrders();
                     // Обновляем список активных заказов
                     loadWaiterActiveOrders();
@@ -2205,7 +2250,13 @@
             };
             
             const sectionMessage = sectionNames[section] || section;
-            tg.showAlert(`🚫 ${sectionMessage} временно недоступен\n\nСкоро вы узнаете, что будет\n\nОставайтесь с нами!`);
+            // Уведомление о недоступности раздела
+            const unavailableMsg = `🚫 ${sectionMessage} временно недоступен\n\nСкоро вы узнаете, что будет\n\nОставайтесь с нами!`;
+            console.log(unavailableMsg);
+            if (tg && tg.HapticFeedback && tg.HapticFeedback.notificationOccurred) {
+                tg.HapticFeedback.notificationOccurred('warning');
+            }
+            alert(unavailableMsg);
         }
 
         // Переключение вкладок с проверкой доступа
