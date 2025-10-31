@@ -685,11 +685,15 @@
                 <div class="form-group">
                     <label>Роль</label>
                     <select id="edit-user-role" required>
-                        <option value="User">Пользователь</option>
-                        <option value="Resident">Резидент</option>
-                        <option value="Waiter">Официант</option>
-                        <option value="Admin">Администратор</option>
+                        <option value="User">👤 Пользователь</option>
+                        <option value="Resident">🏆 Резидент</option>
+                        <option value="Waiter">🍽️ Официант</option>
+                        <option value="Admin">👔 Администратор</option>
+                        <option value="SuperAdmin">🔐 Супер-администратор</option>
                     </select>
+                    <small style="color: rgba(255,255,255,0.6); font-size: 12px; margin-top: 5px; display: block;">
+                        💡 Супер-администратор имеет полный доступ ко всем функциям
+                    </small>
                 </div>
                 <div class="form-group">
                     <label>Статус</label>
@@ -1608,7 +1612,18 @@
                         photoPreview.innerHTML = '<span style="color: rgba(255,255,255,0.5);">Фото не загружено</span>';
                     }
                     
-                    document.getElementById('edit-user-role').value = fullUser.is_admin ? 'Admin' : (fullUser.is_resident ? 'Resident' : (fullUser.is_waiter ? 'Waiter' : 'User'));
+                    // Определяем роль пользователя
+                    let userRole = 'User';
+                    if (fullUser.is_super_admin) {
+                        userRole = 'SuperAdmin';
+                    } else if (fullUser.is_admin) {
+                        userRole = 'Admin';
+                    } else if (fullUser.is_waiter) {
+                        userRole = 'Waiter';
+                    } else if (fullUser.is_resident) {
+                        userRole = 'Resident';
+                    }
+                    document.getElementById('edit-user-role').value = userRole;
                     document.getElementById('edit-user-status').value = user.status || 'Active';
                     document.getElementById('edit-user-chips').value = fullUser.chips || 0;
                     document.getElementById('edit-user-is-bartender').checked = fullUser.is_bartender || false;
@@ -1695,23 +1710,25 @@
                     };
                     
                     // Обновляем роли в зависимости от выбранной роли
-                    if (userRole === 'Admin') {
+                    // Сбрасываем все роли сначала
+                    updateData.is_admin = false;
+                    updateData.is_resident = false;
+                    updateData.is_waiter = false;
+                    updateData.is_super_admin = false;
+                    
+                    // Устанавливаем выбранную роль
+                    if (userRole === 'SuperAdmin') {
+                        updateData.is_super_admin = true;
+                        updateData.is_admin = true; // Супер-админ также админ
+                        updateData.is_resident = true; // И резидент
+                    } else if (userRole === 'Admin') {
                         updateData.is_admin = true;
-                        updateData.is_resident = false;
-                        updateData.is_waiter = false;
                     } else if (userRole === 'Resident') {
-                        updateData.is_admin = false;
                         updateData.is_resident = true;
-                        updateData.is_waiter = false;
                     } else if (userRole === 'Waiter') {
-                        updateData.is_admin = false;
-                        updateData.is_resident = false;
                         updateData.is_waiter = true;
-                    } else {
-                        updateData.is_admin = false;
-                        updateData.is_resident = false;
-                        updateData.is_waiter = false;
                     }
+                    // User - все роли остаются false
                     
                     try {
                         const res = await fetch(`/api/users/${userId}`, {

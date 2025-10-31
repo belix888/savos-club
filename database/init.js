@@ -292,6 +292,21 @@ db.serialize(() => {
     )
   `);
 
+  // Таблица логов изменений ролей пользователей
+  db.run(`
+    CREATE TABLE IF NOT EXISTS role_change_logs (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      user_id INTEGER NOT NULL,
+      admin_id INTEGER NOT NULL,
+      old_role TEXT,
+      new_role TEXT,
+      description TEXT,
+      created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+      FOREIGN KEY (user_id) REFERENCES users (id),
+      FOREIGN KEY (admin_id) REFERENCES users (id)
+    )
+  `);
+
   // Вставка начальных данных
   db.run(`
     INSERT OR IGNORE INTO settings (key, value, description) VALUES 

@@ -611,6 +611,10 @@ app.put('/api/users/:id', (req, res) => {
       updates.push('is_waiter = ?');
       values.push(updateData.is_waiter ? 1 : 0);
     }
+    if (updateData.is_super_admin !== undefined) {
+      updates.push('is_super_admin = ?');
+      values.push(updateData.is_super_admin ? 1 : 0);
+    }
     if (updateData.first_name !== undefined) {
       updates.push('first_name = ?');
       values.push(updateData.first_name);
@@ -636,28 +640,103 @@ app.put('/api/users/:id', (req, res) => {
     updates.push('updated_at = CURRENT_TIMESTAMP');
     values.push(userId);
     
-    const sql = `UPDATE users SET ${updates.join(', ')} WHERE id = ?`;
-    
-    db.run(sql, values, function(err) {
+    // Сохраняем старые значения ролей для логирования
+    db.get('SELECT is_admin, is_resident, is_waiter, is_super_admin, is_bartender FROM users WHERE id = ?', [userId], (err, oldUser) => {
       if (err) {
-        console.error('❌ Error updating user:', err);
-        return res.status(500).json({ error: 'Database error', details: err.message });
+        console.error('❌ Error fetching old user data:', err);
+        return res.status(500).json({ error: 'Database error' });
       }
       
-      console.log('✅ User updated:', userId, updateData);
+      // Определяем старую и новую роли для логирования
+      const getRoleName = (roles) => {
+        if (!roles) return 'Неизвестно';
+        if (roles.is_super_admin) return 'Супер-администратор';
+        if (roles.is_admin) return 'Администратор';
+        if (roles.is_waiter) return 'Официант';
+        if (roles.is_resident) return 'Резидент';
+        return 'Пользователь';
+      };
       
-      // Возвращаем обновленные данные пользователя
-      db.get('SELECT * FROM users WHERE id = ?', [userId], (err, user) => {
-        if (err) {
-          return res.json({
-            status: 'success',
-            message: 'User updated',
-            user_id: userId
-          });
+      const oldRoles = oldUser ? {
+        is_admin: !!oldUser.is_admin,
+        is_resident: !!oldUser.is_resident,
+        is_waiter: !!oldUser.is_waiter,
+        is_super_admin: !!oldUser.is_super_admin,
+        is_bartender: !!oldUser.is_bartender
+      } : {};
+      
+      const newRoles = {
+        is_admin: updateData.is_admin !== undefined ? updateData.is_admin : oldRoles.is_admin,
+        is_resident: updateData.is_resident !== undefined ? updateData.is_resident : oldRoles.is_resident,
+        is_waiter: updateData.is_waiter !== undefined ? updateData.is_waiter : oldRoles.is_waiter,
+        is_super_admin: updateData.is_super_admin !== undefined ? updateData.is_super_admin : oldRoles.is_super_admin,
+        is_bartender: updateData.is_bartender !== undefined ? updateData.is_bartender : oldRoles.is_bartender
+      };
+      
+      const oldRoleName = getRoleName(oldRoles);
+      const newRoleName = getRoleName(newRoles);
+      
+      // Выполняем обновление
+      const sql = `UPDATE users SET ${updates.join(', ')} WHERE id = ?`;
+      
+      db.run(sql, values, function(updateErr) {
+        if (updateErr) {
+          console.error('❌ Error updating user:', updateErr);
+          return res.status(500).json({ error: 'Database error', details: updateErr.message });
         }
         
-        res.json({
-          status: 'success',
+        console.log('✅ User updated:', userId, updateData);
+        
+        // Логируем изменение роли, если она изменилась
+        if (oldRoleName !== newRoleName) {
+          // Пытаемся получить ID админа из заголовка авторизации
+          let adminId = 0; // По умолчанию системный
+          try {
+            const auth = req.headers.authorization || '';
+            if (auth.startsWith('Bearer ')) {
+              const token = auth.substring(7);
+              const jwt = require('jsonwebtoken');
+              if (token !== 'super-admin-token' && token !== 'demo-admin-token') {
+                try {
+                  const payload = jwt.verify(token, process.env.JWT_SECRET || 'savosbot_club_super_secret_jwt_key_2024');
+                  adminId = payload.id || 0;
+                } catch (e) {
+                  // Не критично, используем 0
+                }
+              }
+            }
+          } catch (e) {
+            // Игнорируем ошибки получения ID админа
+          }
+          
+          const description = `Изменение роли с "${oldRoleName}" на "${newRoleName}"${updateData.is_bartender !== undefined && updateData.is_bartender !== oldRoles.is_bartender ? (updateData.is_bartender ? ' (Назначен старшим барменом)' : ' (Снято звание старшего бармена)') : ''}`;
+          
+          db.run(
+            'INSERT INTO role_change_logs (user_id, admin_id, old_role, new_role, description) VALUES (?, ?, ?, ?, ?)',
+            [userId, adminId, oldRoleName, newRoleName, description],
+            (logErr) => {
+              if (logErr) {
+                console.error('❌ Error logging role change:', logErr);
+                // Не возвращаем ошибку, обновление уже выполнено
+              } else {
+                console.log(`✅ Role change logged: user ${userId}, ${oldRoleName} -> ${newRoleName}`);
+              }
+            }
+          );
+        }
+        
+        // Возвращаем обновленные данные пользователя
+        db.get('SELECT * FROM users WHERE id = ?', [userId], (err, user) => {
+          if (err) {
+            return res.json({
+              status: 'success',
+              message: 'User updated',
+              user_id: userId
+            });
+          }
+          
+          res.json({
+            status: 'success',
           message: 'User updated',
           user: {
             id: user.id,
