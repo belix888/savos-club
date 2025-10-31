@@ -2465,7 +2465,8 @@ app.post('/api/orders/:id/complete', (req, res) => {
 
 // Получение активных (взятых в работу) заказов официанта
 app.get('/api/waiters/orders/active', (req, res) => {
-  console.log('📋 GET /api/waiters/orders/active - запрос получен');
+  console.log('📋 ===== GET /api/waiters/orders/active - запрос получен =====');
+  console.log('   Path:', req.path, 'URL:', req.url);
   try {
     const auth = req.headers.authorization || '';
     if (!auth.startsWith('Bearer ')) {
@@ -2728,10 +2729,28 @@ app.use((err, req, res, next) => {
   res.status(500).json({ error: 'Something went wrong!' });
 });
 
+// Логирование всех запросов для отладки (перед 404 handler)
+app.use((req, res, next) => {
+  // Логируем только API запросы
+  if (req.path && req.path.startsWith('/api')) {
+    console.log(`📡 ${req.method} ${req.path} - Headers:`, {
+      authorization: req.headers.authorization ? 'Present' : 'Missing',
+      'user-agent': req.headers['user-agent'],
+      origin: req.headers.origin
+    });
+  }
+  next();
+});
+
 // 404 handler (должен быть ПОСЛЕДНИМ)
 app.use((req, res) => {
-  console.log(`⚠️ 404 - Route not found: ${req.method} ${req.path || req.url}`);
-  console.log(`   Headers:`, JSON.stringify(req.headers, null, 2));
+  // Не логируем статические файлы
+  if (req.path && !req.path.startsWith('/api') && !req.path.startsWith('/mini-app') && !req.path.startsWith('/admin-panel')) {
+    return res.status(404).json({ error: 'Not found' });
+  }
+  
+  console.log(`⚠️ 404 - API Route not found: ${req.method} ${req.path || req.url}`);
+  console.log(`   Available waiters endpoints: /api/waiters/orders, /api/waiters/orders/active`);
   res.status(404).json({ error: 'Not found', path: req.path || req.url, method: req.method });
 });
 
