@@ -812,11 +812,13 @@
                                 }
                                 
                                 showMainApp();
-                                await Promise.all([loadEvents(), loadDrinks(), loadContests(), loadProfile(), loadOrders()]);
-                                if (currentUser && currentUser.is_waiter) {
-                                    checkWaiterShift();
-                                }
-                                hideLoader();
+                        await Promise.all([loadEvents(), loadDrinks(), loadContests(), loadProfile(), loadOrders()]);
+                        // Обновляем видимость вкладки официанта после загрузки профиля
+                        updateWaiterTabVisibility();
+                        if (currentUser && currentUser.is_waiter) {
+                            checkWaiterShift();
+                        }
+                        hideLoader();
                                 return;
                             }
                         }
