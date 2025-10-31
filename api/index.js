@@ -2465,9 +2465,11 @@ app.post('/api/orders/:id/complete', (req, res) => {
 
 // Получение активных (взятых в работу) заказов официанта
 app.get('/api/waiters/orders/active', (req, res) => {
+  console.log('📋 GET /api/waiters/orders/active - запрос получен');
   try {
     const auth = req.headers.authorization || '';
     if (!auth.startsWith('Bearer ')) {
+      console.log('⚠️ Нет токена авторизации');
       return res.status(401).json({ error: 'Unauthorized' });
     }
     
