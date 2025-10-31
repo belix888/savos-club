@@ -683,17 +683,24 @@
                     <input type="text" id="edit-user-photo-url" readonly style="background: rgba(255,255,255,0.05); margin-top: 10px;">
                 </div>
                 <div class="form-group">
-                    <label>Роль</label>
-                    <select id="edit-user-role" required>
-                        <option value="User">👤 Пользователь</option>
-                        <option value="Resident">🏆 Резидент</option>
-                        <option value="Waiter">🍽️ Официант</option>
-                        <option value="Admin">👔 Администратор</option>
-                        <option value="SuperAdmin">🔐 Супер-администратор</option>
+                    <label style="font-weight: 600; font-size: 16px; margin-bottom: 10px; display: block;">🎭 Роль пользователя</label>
+                    <select id="edit-user-role" required style="padding: 12px; font-size: 15px; font-weight: 500;">
+                        <option value="User">👤 Пользователь (обычный пользователь)</option>
+                        <option value="Resident">🏆 Резидент (привилегированный пользователь)</option>
+                        <option value="Waiter">🍽️ Официант (может принимать заказы)</option>
+                        <option value="Admin">👔 Администратор (управление системой)</option>
+                        <option value="SuperAdmin">🔐 Супер-администратор (полный доступ)</option>
                     </select>
-                    <small style="color: rgba(255,255,255,0.6); font-size: 12px; margin-top: 5px; display: block;">
-                        💡 Супер-администратор имеет полный доступ ко всем функциям
-                    </small>
+                    <div style="margin-top: 10px; padding: 12px; background: rgba(239, 68, 68, 0.1); border-left: 3px solid #ef4444; border-radius: 5px;">
+                        <div style="color: rgba(255,255,255,0.9); font-size: 13px; line-height: 1.6;">
+                            <strong>📋 Доступные роли:</strong><br>
+                            • <strong>Пользователь</strong> - базовые права доступа<br>
+                            • <strong>Резидент</strong> - расширенные права и привилегии<br>
+                            • <strong>Официант</strong> - может работать с заказами (получать, брать, завершать)<br>
+                            • <strong>Администратор</strong> - доступ к админ-панели и управлению<br>
+                            • <strong>Супер-администратор</strong> - полный доступ ко всем функциям системы
+                        </div>
+                    </div>
                 </div>
                 <div class="form-group">
                     <label>Статус</label>
@@ -1737,10 +1744,20 @@
                             body: JSON.stringify(updateData)
                         });
                         if (res.ok) {
-                            showToast('success', 'Изменения сохранены', `${userName} обновлен`);
+                            const roleNames = {
+                                'User': 'Пользователь',
+                                'Resident': 'Резидент',
+                                'Waiter': 'Официант',
+                                'Admin': 'Администратор',
+                                'SuperAdmin': 'Супер-администратор'
+                            };
+                            showToast('success', 'Изменения сохранены', `${userName} теперь ${roleNames[userRole] || 'Пользователь'}`);
                             closeEditUserModal();
                             // Обновляем список
                             await loadUsers();
+                            if (document.getElementById('super-users')) {
+                                await loadSuperUsers();
+                            }
                         } else {
                             const d = await res.json().catch(()=>({error:'Ошибка сохранения'}));
                             showToast('error', 'Ошибка', d.error || 'Не удалось сохранить пользователя');
