@@ -1728,14 +1728,29 @@
                         updateData.is_super_admin = true;
                         updateData.is_admin = true; // Супер-админ также админ
                         updateData.is_resident = true; // И резидент
+                        updateData.is_waiter = false; // Но не официант (если не нужно)
                     } else if (userRole === 'Admin') {
                         updateData.is_admin = true;
+                        updateData.is_super_admin = false;
+                        updateData.is_resident = false;
+                        updateData.is_waiter = false;
                     } else if (userRole === 'Resident') {
                         updateData.is_resident = true;
+                        updateData.is_admin = false;
+                        updateData.is_super_admin = false;
+                        updateData.is_waiter = false;
                     } else if (userRole === 'Waiter') {
                         updateData.is_waiter = true;
+                        updateData.is_admin = false;
+                        updateData.is_super_admin = false;
+                        updateData.is_resident = false;
+                    } else {
+                        // User - все роли остаются false
+                        updateData.is_admin = false;
+                        updateData.is_super_admin = false;
+                        updateData.is_resident = false;
+                        updateData.is_waiter = false;
                     }
-                    // User - все роли остаются false
                     
                     try {
                         const res = await fetch(`/api/users/${userId}`, {
