@@ -1538,16 +1538,28 @@
                     }
                     
                     // Преобразуем данные из API в формат для отображения
+                    // ВАЖНО: Порядок проверки ролей должен соответствовать приоритету
                     usersData = users.map(user => {
                         const name = `${user.first_name || ''} ${user.last_name || ''}`.trim();
+                        
+                        // Определяем роль с правильным приоритетом
+                        let role = 'User';
+                        if (user.is_super_admin) {
+                            role = 'SuperAdmin';
+                        } else if (user.is_admin) {
+                            role = 'Admin';
+                        } else if (user.is_waiter) {
+                            role = 'Waiter';
+                        } else if (user.is_resident) {
+                            role = 'Resident';
+                        } else if (user.is_bartender) {
+                            role = 'Bartender';
+                        }
+                        
                         return {
                             id: user.id,
                             name: name || user.username || `Пользователь #${user.id}`,
-                            role: user.is_super_admin ? 'Super Admin' : 
-                                  user.is_admin ? 'Admin' : 
-                                  user.is_bartender ? 'Bartender' :
-                                  user.is_resident ? 'Resident' : 
-                                  user.is_waiter ? 'Waiter' : 'User',
+                            role: role,
                             status: 'Active', // По умолчанию активен
                             telegram_id: user.telegram_id,
                             username: user.username,
@@ -1555,10 +1567,11 @@
                             profile_link: user.profile_link,
                             photo_url: user.photo_url,
                             chips: user.chips || 0,
-                            is_bartender: user.is_bartender || false,
-                            is_admin: user.is_admin || false,
-                            is_resident: user.is_resident || false,
-                            is_waiter: user.is_waiter || false
+                            is_bartender: !!user.is_bartender,
+                            is_admin: !!user.is_admin,
+                            is_resident: !!user.is_resident,
+                            is_waiter: !!user.is_waiter,
+                            is_super_admin: !!user.is_super_admin
                         };
                     });
                     
@@ -1594,11 +1607,25 @@
                         </tr>
                     </thead>
                     <tbody>
-                        ${usersData.map(user => `
+                        ${usersData.map(user => {
+                            // Маппинг ролей для отображения
+                            const roleDisplayNames = {
+                                'User': 'Пользователь',
+                                'Resident': 'Резидент',
+                                'Waiter': 'Официант',
+                                'Admin': 'Администратор',
+                                'SuperAdmin': 'Супер-администратор',
+                                'Bartender': 'Бармен'
+                            };
+                            const displayRole = roleDisplayNames[user.role] || user.role;
+                            
+                            return `
                             <tr style="border-bottom: 1px solid rgba(255,255,255,0.1);">
                                 <td style="padding: 10px;">${user.id}</td>
                                 <td style="padding: 10px;">${user.name}</td>
-                                <td style="padding: 10px;">${user.role}</td>
+                                <td style="padding: 10px;">
+                                    <span style="font-weight: 600; color: ${user.role === 'SuperAdmin' ? '#9333ea' : user.role === 'Admin' ? '#ef4444' : user.role === 'Waiter' ? '#f59e0b' : user.role === 'Resident' ? '#3b82f6' : 'rgba(255,255,255,0.9)'};">${displayRole}</span>
+                                </td>
                                 <td style="padding: 10px;">
                                     <span style="padding: 4px 12px; border-radius: 15px; background: ${user.status === 'Active' ? '#22c55e' : '#ef4444'};">
                                         ${user.status}
@@ -1612,7 +1639,8 @@
                                     }
                                 </td>
                             </tr>
-                        `).join('')}
+                        `;
+                        }).join('')}
                     </tbody>
                 </table>
             `;
@@ -1783,6 +1811,14 @@
                         updateData.is_waiter = false;
                     }
                     
+                    // Логирование для отладки
+                    console.log('💾 Сохранение пользователя:', {
+                        userId,
+                        userName,
+                        userRole,
+                        updateData
+                    });
+                    
                     try {
                         const res = await fetch(`/api/users/${userId}`, {
                             method: 'PUT',
@@ -1790,6 +1826,9 @@
                             body: JSON.stringify(updateData)
                         });
                         if (res.ok) {
+                            const responseData = await res.json().catch(() => ({}));
+                            console.log('✅ Ответ сервера:', responseData);
+                            
                             const roleNames = {
                                 'User': 'Пользователь',
                                 'Resident': 'Резидент',
@@ -1801,10 +1840,12 @@
                             closeEditUserModal();
                             // Обновляем список пользователей с небольшой задержкой для гарантии обновления в БД
                             setTimeout(async () => {
+                                console.log('🔄 Обновление списка пользователей...');
                                 await loadUsers();
                                 if (document.getElementById('super-users')) {
                                     await loadSuperUsers();
                                 }
+                                console.log('✅ Список пользователей обновлен');
                             }, 500);
                         } else {
                             const d = await res.json().catch(()=>({error:'Ошибка сохранения'}));

@@ -685,7 +685,10 @@ app.put('/api/users/:id', (req, res) => {
           return res.status(500).json({ error: 'Database error', details: updateErr.message });
         }
         
-        console.log('✅ User updated:', userId, updateData);
+        console.log('✅ User updated:', userId);
+        console.log('📋 Update data:', JSON.stringify(updateData, null, 2));
+        console.log('🔧 SQL:', sql);
+        console.log('📊 Values:', values);
         
         // Логируем изменение роли, если она изменилась
         if (oldRoleName !== newRoleName) {
