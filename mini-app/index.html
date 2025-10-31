@@ -1006,6 +1006,12 @@
                         authToken = d.token;
                         currentUser = d.user;
                         localStorage.setItem('miniapp_token', authToken);
+                        // Сохраняем данные пользователя в кеш
+                        try {
+                            localStorage.setItem('currentUserCache', JSON.stringify(currentUser));
+                        } catch (e) {
+                            console.warn('Could not cache user data:', e);
+                        }
                         
                         // Показываем основное приложение и загружаем данные
                         showMainApp();
