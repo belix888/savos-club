@@ -2068,21 +2068,33 @@ app.post('/api/waiters/shift/end', (req, res) => {
       if (err) return res.status(500).json({ error: 'Database error' });
       if (!user) return res.status(403).json({ error: 'Только официанты могут завершать смену' });
       
-      // Завершаем активную смену
-      db.run("UPDATE waiter_shifts SET status = 'ended', end_time = CURRENT_TIMESTAMP WHERE waiter_id = ? AND (end_time IS NULL OR status = 'working')", [userId], function(err){
+      // Проверяем, есть ли активные (взятые в работу) заказы
+      db.get('SELECT COUNT(*) as count FROM orders WHERE waiter_id = ? AND status = ?', [userId, 'taken'], (err, result) => {
         if (err) return res.status(500).json({ error: 'Database error' });
-        if (this.changes === 0) {
-          return res.status(400).json({ error: 'Нет активной смены для завершения' });
+        
+        const activeOrdersCount = result ? result.count : 0;
+        if (activeOrdersCount > 0) {
+          return res.status(400).json({ 
+            error: `Нельзя завершить смену с активными заказами. У вас ${activeOrdersCount} заказ(ов) в работе. Завершите их перед завершением смены.` 
+          });
         }
         
-        // Логируем действие
-        db.run(
-          'INSERT INTO waiter_actions_logs (waiter_id, action_type, description) VALUES (?, ?, ?)',
-          [userId, 'shift_end', 'Официант закончил смену'],
-          (logErr) => { if (logErr) console.error('Error logging waiter action:', logErr); }
-        );
-        
-        res.json({ status: 'success', message: 'Смена завершена' });
+        // Завершаем активную смену
+        db.run("UPDATE waiter_shifts SET status = 'ended', end_time = CURRENT_TIMESTAMP WHERE waiter_id = ? AND (end_time IS NULL OR status = 'working')", [userId], function(err){
+          if (err) return res.status(500).json({ error: 'Database error' });
+          if (this.changes === 0) {
+            return res.status(400).json({ error: 'Нет активной смены для завершения' });
+          }
+          
+          // Логируем действие
+          db.run(
+            'INSERT INTO waiter_actions_logs (waiter_id, action_type, description) VALUES (?, ?, ?)',
+            [userId, 'shift_end', 'Официант закончил смену'],
+            (logErr) => { if (logErr) console.error('Error logging waiter action:', logErr); }
+          );
+          
+          res.json({ status: 'success', message: 'Смена завершена' });
+        });
       });
     });
   } catch (error) {
@@ -2111,19 +2123,24 @@ app.get('/api/waiters/orders', (req, res) => {
     
     const db = require('../database/init');
     
-    // Проверяем, что пользователь является официантом и на смене
-    db.get('SELECT * FROM users WHERE id = ? AND is_waiter = 1', [userId], (err, user) => {
-      if (err) return res.status(500).json({ error: 'Database error' });
-      if (!user) return res.status(403).json({ error: 'Только официанты могут просматривать заказы' });
-      
-      // Проверяем активную смену
-      db.get('SELECT * FROM waiter_shifts WHERE waiter_id = ? AND (end_time IS NULL OR status = "working") ORDER BY start_time DESC LIMIT 1', [userId], (err, shift) => {
+      // Проверяем, что пользователь является официантом и на смене
+      db.get('SELECT * FROM users WHERE id = ? AND is_waiter = 1', [userId], (err, user) => {
         if (err) return res.status(500).json({ error: 'Database error' });
-        if (!shift) {
-          return res.status(400).json({ error: 'Вы не на смене. Начните смену, чтобы получать заказы.' });
-        }
+        if (!user) return res.status(403).json({ error: 'Только официанты могут просматривать заказы' });
         
-        // Получаем заказы со статусом 'new' (новые, не взятые в работу)
+        // Проверяем активную смену
+        db.get('SELECT * FROM waiter_shifts WHERE waiter_id = ? AND (end_time IS NULL OR status = "working") ORDER BY start_time DESC LIMIT 1', [userId], (err, shift) => {
+          if (err) return res.status(500).json({ error: 'Database error' });
+          if (!shift) {
+            return res.status(400).json({ error: 'Вы не на смене. Начните смену, чтобы получать заказы.' });
+          }
+          
+          // Дополнительная проверка: убеждаемся, что смена действительно активна
+          if (shift.end_time || shift.status !== 'working') {
+            return res.status(400).json({ error: 'Ваша смена завершена. Начните новую смену, чтобы получать заказы.' });
+          }
+          
+          // Получаем заказы со статусом 'new' (новые, не взятые в работу)
         const query = `
           SELECT 
             o.*,
@@ -2327,40 +2344,114 @@ app.post('/api/orders/:id/complete', (req, res) => {
     
     const db = require('../database/init');
     
-    // Проверяем, что пользователь является официантом и заказ принадлежит ему
-    db.get('SELECT * FROM orders WHERE id = ? AND waiter_id = ?', [id, userId], (err, order) => {
-      if (err) return res.status(500).json({ error: 'Database error' });
-      if (!order) {
-        return res.status(403).json({ error: 'Заказ не найден или не назначен вам' });
-      }
-      
-      if (order.status === 'completed') {
-        return res.status(400).json({ error: 'Заказ уже завершен' });
-      }
-      
-      // Завершаем заказ
-      db.run(
-        'UPDATE orders SET status = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?',
-        ['completed', id],
-        function(err) {
+        // Проверяем, что пользователь является официантом
+        db.get('SELECT * FROM users WHERE id = ? AND is_waiter = 1', [userId], (err, waiter) => {
           if (err) return res.status(500).json({ error: 'Database error' });
+          if (!waiter) {
+            return res.status(403).json({ error: 'Только официанты могут завершать заказы' });
+          }
           
-          // Логируем действие
-          db.run(
-            'INSERT INTO waiter_actions_logs (waiter_id, action_type, order_id, description) VALUES (?, ?, ?, ?)',
-            [userId, 'order_completed', id, `Официант завершил заказ #${id}`],
-            (logErr) => { 
-              if (logErr) console.error('Error logging waiter action:', logErr);
-              else console.log(`✅ Waiter ${userId} completed order ${id}`);
+          // Проверяем, что заказ принадлежит этому официанту
+          db.get('SELECT * FROM orders WHERE id = ? AND waiter_id = ?', [id, userId], (err, order) => {
+            if (err) return res.status(500).json({ error: 'Database error' });
+            if (!order) {
+              return res.status(403).json({ error: 'Заказ не найден или не назначен вам' });
             }
-          );
-          
-          res.json({ status: 'success', message: 'Заказ завершен' });
-        }
-      );
+            
+            if (order.status === 'completed') {
+              return res.status(400).json({ error: 'Заказ уже завершен' });
+            }
+            
+            if (order.status !== 'taken') {
+              return res.status(400).json({ error: 'Можно завершать только заказы со статусом "в работе"' });
+            }
+      
+            // Завершаем заказ
+            db.run(
+              'UPDATE orders SET status = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?',
+              ['completed', id],
+              function(err) {
+                if (err) return res.status(500).json({ error: 'Database error' });
+                
+                // Логируем действие
+                db.run(
+                  'INSERT INTO waiter_actions_logs (waiter_id, action_type, order_id, description) VALUES (?, ?, ?, ?)',
+                  [userId, 'order_completed', id, `Официант завершил заказ #${id}`],
+                  (logErr) => { 
+                    if (logErr) console.error('Error logging waiter action:', logErr);
+                    else console.log(`✅ Waiter ${userId} completed order ${id}`);
+                  }
+                );
+                
+                res.json({ status: 'success', message: 'Заказ завершен' });
+              }
+            );
+          });
+          });
     });
   } catch (error) {
     console.error('❌ Error completing order:', error);
+    res.status(500).json({ error: 'Internal server error' });
+  }
+});
+
+// Получение активных (взятых в работу) заказов официанта
+app.get('/api/waiters/orders/active', (req, res) => {
+  try {
+    const auth = req.headers.authorization || '';
+    if (!auth.startsWith('Bearer ')) {
+      return res.status(401).json({ error: 'Unauthorized' });
+    }
+    
+    const token = auth.substring(7);
+    const jwt = require('jsonwebtoken');
+    let userId;
+    try {
+      const payload = jwt.verify(token, process.env.JWT_SECRET || 'savosbot_club_super_secret_jwt_key_2024');
+      userId = payload.id;
+    } catch (e) {
+      return res.status(401).json({ error: 'Invalid token' });
+    }
+    
+    const db = require('../database/init');
+    
+    // Проверяем, что пользователь является официантом
+    db.get('SELECT * FROM users WHERE id = ? AND is_waiter = 1', [userId], (err, user) => {
+      if (err) return res.status(500).json({ error: 'Database error' });
+      if (!user) return res.status(403).json({ error: 'Только официанты могут просматривать свои активные заказы' });
+      
+      // Получаем активные заказы официанта (взятые в работу)
+      const query = `
+        SELECT 
+          o.*,
+          u.first_name as user_first_name,
+          u.last_name as user_last_name,
+          u.username as user_username,
+          u.phone as user_phone,
+          GROUP_CONCAT(
+            d.name || ' (x' || oi.quantity || ' - ' || oi.price * oi.quantity || ' фиш.)'
+          ) as items_text,
+          COUNT(oi.id) as items_count
+        FROM orders o
+        JOIN users u ON o.user_id = u.id
+        LEFT JOIN order_items oi ON o.id = oi.order_id
+        LEFT JOIN drinks d ON oi.drink_id = d.id
+        WHERE o.waiter_id = ? AND o.status = 'taken'
+        GROUP BY o.id
+        ORDER BY o.created_at ASC
+      `;
+      
+      db.all(query, [userId], (err, orders) => {
+        if (err) {
+          console.error('❌ Error fetching active waiter orders:', err);
+          return res.status(500).json({ error: 'Database error' });
+        }
+        
+        res.json(orders || []);
+      });
+    });
+  } catch (error) {
+    console.error('❌ Error fetching active waiter orders:', error);
     res.status(500).json({ error: 'Internal server error' });
   }
 });

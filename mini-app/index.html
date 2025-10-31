@@ -567,9 +567,21 @@
                     </div>
                     
                     <div id="waiter-orders-section" style="display: none;">
-                        <h4 style="color: #ef4444; margin-bottom: 15px; margin-top: 20px;">📋 Новые заказы</h4>
+                        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px; margin-top: 20px;">
+                            <h4 style="color: #ef4444; margin: 0;">📋 Новые заказы</h4>
+                            <button class="btn btn-secondary" onclick="loadWaiterActiveOrders()" style="padding: 6px 12px; font-size: 14px;">
+                                🔄 Мои активные заказы
+                            </button>
+                        </div>
                         <div id="waiter-orders-list">
                             <div class="loading">Загрузка заказов...</div>
+                        </div>
+                        
+                        <div id="waiter-active-orders-section" style="margin-top: 30px; display: none;">
+                            <h4 style="color: #22c55e; margin-bottom: 15px;">✅ Мои активные заказы</h4>
+                            <div id="waiter-active-orders-list">
+                                <div class="loading">Загрузка активных заказов...</div>
+                            </div>
                         </div>
                     </div>
                     
@@ -1570,7 +1582,7 @@
                     const ordersSection = document.getElementById('waiter-orders-section');
                     const notOnShift = document.getElementById('waiter-not-on-shift');
 
-                    if (activeShift) {
+                    if (activeShift && !activeShift.end_time && activeShift.status === 'working') {
                         const startTime = new Date(activeShift.start_time);
                         statusText.textContent = `Смена начата: ${startTime.toLocaleString('ru-RU')}`;
                         statusBadge.textContent = '🟢 На смене';
@@ -1580,6 +1592,8 @@
                         ordersSection.style.display = 'block';
                         notOnShift.style.display = 'none';
                         loadWaiterOrders();
+                        // Автоматически загружаем активные заказы
+                        setTimeout(() => loadWaiterActiveOrders(), 500);
                     } else {
                         statusText.textContent = 'Смена не начата';
                         statusBadge.textContent = '⚫ Не на смене';
@@ -1738,6 +1752,8 @@
                         tg.showAlert('✅ Заказ взят в работу');
                     }
                     loadWaiterOrders();
+                    // Обновляем список активных заказов
+                    loadWaiterActiveOrders();
                 } else {
                     showError(data.error || 'Ошибка взятия заказа');
                 }
@@ -1870,12 +1886,73 @@
                         tg.showAlert('✅ Заказ завершен');
                     }
                     loadWaiterOrders();
+                    // Обновляем список активных заказов
+                    loadWaiterActiveOrders();
                 } else {
                     showError(data.error || 'Ошибка завершения заказа');
                 }
             } catch (error) {
                 console.error('Ошибка завершения заказа:', error);
                 showError('Ошибка завершения заказа');
+            }
+        }
+
+        // Загрузить активные заказы официанта
+        async function loadWaiterActiveOrders() {
+            if (!authToken) return;
+
+            try {
+                const response = await fetch('/api/waiters/orders/active', {
+                    headers: {
+                        'Authorization': `Bearer ${authToken}`
+                    }
+                });
+
+                if (!response.ok) {
+                    const error = await response.json();
+                    document.getElementById('waiter-active-orders-list').innerHTML = `<div class="error">${error.error || 'Ошибка загрузки активных заказов'}</div>`;
+                    return;
+                }
+
+                const orders = await response.json();
+                const activeOrdersList = document.getElementById('waiter-active-orders-list');
+                const activeOrdersSection = document.getElementById('waiter-active-orders-section');
+
+                if (!orders || orders.length === 0) {
+                    activeOrdersList.innerHTML = '<p style="text-align: center; color: rgba(255,255,255,0.7);">Нет активных заказов</p>';
+                    activeOrdersSection.style.display = 'block';
+                    return;
+                }
+
+                activeOrdersList.innerHTML = orders.map(order => `
+                    <div class="order-card" style="background: rgba(34,197,94,0.1); padding: 15px; border-radius: 12px; margin-bottom: 15px; border: 1px solid rgba(34,197,94,0.3); cursor: pointer;" onclick="openWaiterOrderModal(${order.id})">
+                        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px;">
+                            <div>
+                                <div style="font-weight: 600; color: #22c55e; font-size: 18px;">Заказ #${order.id}</div>
+                                <div style="color: rgba(255,255,255,0.7); font-size: 14px;">
+                                    ${order.user_first_name || ''} ${order.user_last_name || ''} ${order.user_username ? '@' + order.user_username : ''}
+                                </div>
+                            </div>
+                            <span style="font-weight: 700; color: #22c55e; font-size: 16px;">${order.total_amount} фиш.</span>
+                        </div>
+                        <div style="color: rgba(255,255,255,0.8); margin-bottom: 10px; font-size: 14px;">
+                            ${order.items_text || 'Нет позиций'}
+                        </div>
+                        <div style="display: flex; justify-content: space-between; align-items: center;">
+                            <span style="color: rgba(255,255,255,0.6); font-size: 12px;">
+                                📅 ${new Date(order.created_at).toLocaleString('ru-RU')}
+                            </span>
+                            <button class="btn" style="padding: 8px 16px; font-size: 14px; background: #22c55e;" onclick="event.stopPropagation(); completeOrder(${order.id})">
+                                ✅ Завершить заказ
+                            </button>
+                        </div>
+                    </div>
+                `).join('');
+                
+                activeOrdersSection.style.display = 'block';
+            } catch (error) {
+                console.error('Ошибка загрузки активных заказов:', error);
+                document.getElementById('waiter-active-orders-list').innerHTML = '<div class="error">Ошибка загрузки активных заказов</div>';
             }
         }
 
@@ -1889,6 +1966,11 @@
                     const endBtn = document.getElementById('end-shift-btn');
                     if (endBtn && endBtn.style.display !== 'none') {
                         loadWaiterOrders();
+                        // Также обновляем активные заказы
+                        const activeSection = document.getElementById('waiter-active-orders-section');
+                        if (activeSection && activeSection.style.display !== 'none') {
+                            loadWaiterActiveOrders();
+                        }
                     }
                 }
             }, 30000); // 30 секунд
