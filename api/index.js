@@ -737,22 +737,22 @@ app.put('/api/users/:id', (req, res) => {
           
           res.json({
             status: 'success',
-          message: 'User updated',
-          user: {
-            id: user.id,
-            username: user.username,
-            first_name: user.first_name,
-            last_name: user.last_name,
-            chips: parseFloat(user.chips || 0),
-            is_admin: !!user.is_admin,
-            is_bartender: !!user.is_bartender,
-            is_resident: !!user.is_resident,
-            is_waiter: !!user.is_waiter
-          }
+            message: 'User updated',
+            user: {
+              id: user.id,
+              username: user.username,
+              first_name: user.first_name,
+              last_name: user.last_name,
+              chips: parseFloat(user.chips || 0),
+              is_admin: !!user.is_admin,
+              is_bartender: !!user.is_bartender,
+              is_resident: !!user.is_resident,
+              is_waiter: !!user.is_waiter
+            }
+          });
         });
       });
     });
-    
   } catch (error) {
     console.error('❌ Error updating user:', error);
     res.status(500).json({ error: 'Internal server error' });
@@ -2344,51 +2344,50 @@ app.post('/api/orders/:id/complete', (req, res) => {
     
     const db = require('../database/init');
     
-        // Проверяем, что пользователь является официантом
-        db.get('SELECT * FROM users WHERE id = ? AND is_waiter = 1', [userId], (err, waiter) => {
-          if (err) return res.status(500).json({ error: 'Database error' });
-          if (!waiter) {
-            return res.status(403).json({ error: 'Только официанты могут завершать заказы' });
-          }
-          
-          // Проверяем, что заказ принадлежит этому официанту
-          db.get('SELECT * FROM orders WHERE id = ? AND waiter_id = ?', [id, userId], (err, order) => {
-            if (err) return res.status(500).json({ error: 'Database error' });
-            if (!order) {
-              return res.status(403).json({ error: 'Заказ не найден или не назначен вам' });
-            }
-            
-            if (order.status === 'completed') {
-              return res.status(400).json({ error: 'Заказ уже завершен' });
-            }
-            
-            if (order.status !== 'taken') {
-              return res.status(400).json({ error: 'Можно завершать только заказы со статусом "в работе"' });
-            }
+    // Проверяем, что пользователь является официантом
+    db.get('SELECT * FROM users WHERE id = ? AND is_waiter = 1', [userId], (err, waiter) => {
+      if (err) return res.status(500).json({ error: 'Database error' });
+      if (!waiter) {
+        return res.status(403).json({ error: 'Только официанты могут завершать заказы' });
+      }
       
-            // Завершаем заказ
+      // Проверяем, что заказ принадлежит этому официанту
+      db.get('SELECT * FROM orders WHERE id = ? AND waiter_id = ?', [id, userId], (err, order) => {
+        if (err) return res.status(500).json({ error: 'Database error' });
+        if (!order) {
+          return res.status(403).json({ error: 'Заказ не найден или не назначен вам' });
+        }
+        
+        if (order.status === 'completed') {
+          return res.status(400).json({ error: 'Заказ уже завершен' });
+        }
+        
+        if (order.status !== 'taken') {
+          return res.status(400).json({ error: 'Можно завершать только заказы со статусом "в работе"' });
+        }
+
+        // Завершаем заказ
+        db.run(
+          'UPDATE orders SET status = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?',
+          ['completed', id],
+          function(err) {
+            if (err) return res.status(500).json({ error: 'Database error' });
+            
+            // Логируем действие
             db.run(
-              'UPDATE orders SET status = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?',
-              ['completed', id],
-              function(err) {
-                if (err) return res.status(500).json({ error: 'Database error' });
-                
-                // Логируем действие
-                db.run(
-                  'INSERT INTO waiter_actions_logs (waiter_id, action_type, order_id, description) VALUES (?, ?, ?, ?)',
-                  [userId, 'order_completed', id, `Официант завершил заказ #${id}`],
-                  (logErr) => { 
-                    if (logErr) console.error('Error logging waiter action:', logErr);
-                    else console.log(`✅ Waiter ${userId} completed order ${id}`);
-                  }
-                );
-                
-                res.json({ status: 'success', message: 'Заказ завершен' });
+              'INSERT INTO waiter_actions_logs (waiter_id, action_type, order_id, description) VALUES (?, ?, ?, ?)',
+              [userId, 'order_completed', id, `Официант завершил заказ #${id}`],
+              (logErr) => { 
+                if (logErr) console.error('Error logging waiter action:', logErr);
+                else console.log(`✅ Waiter ${userId} completed order ${id}`);
               }
             );
-          });
-        });
+            
+            res.json({ status: 'success', message: 'Заказ завершен' });
+          }
+        );
       });
+    });
   } catch (error) {
     console.error('❌ Error completing order:', error);
     res.status(500).json({ error: 'Internal server error' });
