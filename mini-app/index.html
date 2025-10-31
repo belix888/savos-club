@@ -847,6 +847,7 @@
                             authToken = savedToken;
                             showMainApp();
                             await Promise.all([loadEvents(), loadDrinks(), loadContests(), loadProfile(), loadOrders()]);
+                            updateWaiterTabVisibility();
                             hideLoader();
                             return;
                         }
@@ -880,6 +881,7 @@
                             }
                             showMainApp();
                             await Promise.all([loadEvents(), loadDrinks(), loadContests(), loadProfile(), loadOrders()]);
+                            updateWaiterTabVisibility();
                             hideLoader();
                             return;
                         }
