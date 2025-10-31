@@ -1449,19 +1449,38 @@
                     });
                     if (response.ok) {
                         const data = await response.json();
+                        console.log('📥 Данные из /api/session:', data);
                         if (data && data.user) {
                             user = data.user;
-                            // Обновляем currentUser
-                            currentUser.is_waiter = user.is_waiter;
-                            currentUser.is_resident = user.is_resident;
-                            currentUser.is_admin = user.is_admin;
-                            currentUser.chips = user.chips;
+                            // Обновляем currentUser со всеми данными
+                            currentUser.is_waiter = !!user.is_waiter;
+                            currentUser.is_resident = !!user.is_resident;
+                            currentUser.is_admin = !!user.is_admin;
+                            currentUser.is_super_admin = !!user.is_super_admin;
+                            currentUser.chips = user.chips || 0;
+                            currentUser.first_name = user.first_name;
+                            currentUser.last_name = user.last_name;
+                            console.log('✅ Обновлен currentUser:', {
+                                is_waiter: currentUser.is_waiter,
+                                is_resident: currentUser.is_resident,
+                                is_admin: currentUser.is_admin
+                            });
                         }
+                    } else {
+                        console.warn('⚠️ /api/session вернул статус:', response.status);
                     }
                 } catch (e) {
                     console.warn('Could not refresh user data, using cached:', e);
                     // Используем кешированные данные
                 }
+                
+                // Логируем для отладки
+                console.log('👤 Текущие данные пользователя для отображения:', {
+                    id: user.id,
+                    is_waiter: user.is_waiter,
+                    is_resident: user.is_resident,
+                    name: `${user.first_name} ${user.last_name || ''}`
+                });
                 
                 // Загружаем реальные данные из БД
                 const [bookingsRes, contestsRes] = await Promise.all([

@@ -397,10 +397,14 @@ app.get('/api/session', (req, res) => {
           first_name: user.first_name,
           last_name: user.last_name,
           phone: user.phone,
+          profile_link: user.profile_link,
+          photo_url: user.photo_url,
           chips: parseFloat(user.chips || 0),
           is_admin: !!user.is_admin,
           is_super_admin: !!user.is_super_admin,
-          is_bartender: !!user.is_bartender
+          is_bartender: !!user.is_bartender,
+          is_waiter: !!user.is_waiter,
+          is_resident: !!user.is_resident
         }
       });
     });
