@@ -118,25 +118,15 @@ if (isTurso) {
       }
     },
     close: (callback) => {
-      if (!tursoClient || typeof tursoClient.close !== 'function') {
-        if (callback) callback(null);
-        return;
-      }
-      
-      const closeResult = tursoClient.close();
-      if (closeResult && typeof closeResult.then === 'function') {
-        // Это Promise
-        closeResult
-          .then(() => {
-            if (callback) callback(null);
-          })
-          .catch((err) => {
-            if (callback) callback(err);
-            else console.error('❌ Error closing Turso connection:', err);
-          });
-      } else {
-        // Это синхронный вызов
-        if (callback) callback(null);
+      // Для Turso не закрываем соединение явно - оно управляется автоматически
+      // Turso клиент использует HTTP соединения, которые не требуют явного закрытия
+      // Просто вызываем callback успешно
+      if (callback) {
+        try {
+          callback(null);
+        } catch (err) {
+          console.warn('Error in close callback:', err);
+        }
       }
     }
   };
