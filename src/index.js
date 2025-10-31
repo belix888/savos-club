@@ -36,6 +36,201 @@ app.use('/api/orders', orderRoutes);
 app.use('/api/contests', contestRoutes);
 app.use('/api/admin', adminRoutes);
 
+// Endpoints для официантов (waiters)
+// ==========================================
+// Проверка статуса официанта и смены
+app.get('/api/waiters', async (req, res) => {
+  try {
+    const auth = req.headers.authorization || '';
+    if (!auth.startsWith('Bearer ')) {
+      return res.status(401).json({ error: 'Unauthorized' });
+    }
+    const token = auth.substring(7);
+    const jwt = require('jsonwebtoken');
+    let payload;
+    try {
+      payload = jwt.verify(token, process.env.JWT_SECRET || 'savosbot_club_super_secret_jwt_key_2024');
+    } catch (e) {
+      return res.status(401).json({ error: 'Invalid token' });
+    }
+    const waiter = await new Promise((resolve, reject) => {
+      db.get('SELECT * FROM users WHERE id = ? AND is_waiter = 1', [payload.id], (err, row) => {
+        if (err) reject(err);
+        else resolve(row);
+      });
+    });
+    if (!waiter) {
+      return res.status(403).json({ error: 'Not a waiter' });
+    }
+    const shift = await new Promise((resolve, reject) => {
+      db.get('SELECT * FROM waiter_shifts WHERE waiter_id = ? AND (end_time IS NULL OR status = "working") ORDER BY start_time DESC LIMIT 1', [payload.id], (err, row) => {
+        if (err) reject(err);
+        else resolve(row);
+      });
+    });
+    res.json({
+      waiter: {
+        id: waiter.id,
+        first_name: waiter.first_name,
+        last_name: waiter.last_name,
+        username: waiter.username
+      },
+      shift: shift || null,
+      is_on_shift: !!shift && !shift.end_time && shift.status === 'working'
+    });
+  } catch (error) {
+    console.error('Error fetching waiter info:', error);
+    res.status(500).json({ error: 'Internal server error' });
+  }
+});
+
+// Получение доступных заказов для официанта
+app.get('/api/waiters/orders', async (req, res) => {
+  try {
+    const auth = req.headers.authorization || '';
+    if (!auth.startsWith('Bearer ')) {
+      return res.status(401).json({ error: 'Unauthorized' });
+    }
+    const token = auth.substring(7);
+    const jwt = require('jsonwebtoken');
+    let userId;
+    try {
+      const payload = jwt.verify(token, process.env.JWT_SECRET || 'savosbot_club_super_secret_jwt_key_2024');
+      userId = payload.id;
+    } catch (e) {
+      return res.status(401).json({ error: 'Invalid token' });
+    }
+    
+    // Проверяем, что пользователь является официантом и на смене
+    const user = await new Promise((resolve, reject) => {
+      db.get('SELECT * FROM users WHERE id = ? AND is_waiter = 1', [userId], (err, row) => {
+        if (err) reject(err);
+        else resolve(row);
+      });
+    });
+    if (!user) return res.status(403).json({ error: 'Только официанты могут просматривать заказы' });
+    
+    const shift = await new Promise((resolve, reject) => {
+      db.get('SELECT * FROM waiter_shifts WHERE waiter_id = ? AND (end_time IS NULL OR status = "working") ORDER BY start_time DESC LIMIT 1', [userId], (err, row) => {
+        if (err) reject(err);
+        else resolve(row);
+      });
+    });
+    if (!shift) {
+      return res.status(400).json({ error: 'Вы не на смене. Начните смену, чтобы получать заказы.' });
+    }
+    if (shift.end_time || shift.status !== 'working') {
+      return res.status(400).json({ error: 'Ваша смена завершена. Начните новую смену, чтобы получать заказы.' });
+    }
+    
+    // Получаем все заказы со статусом 'new', которые еще не взяты
+    const orders = await new Promise((resolve, reject) => {
+      db.all(`
+        SELECT 
+          o.id, o.user_id, o.waiter_id, o.status, o.total_amount, o.created_at, o.updated_at,
+          u.first_name as user_first_name, u.last_name as user_last_name,
+          u.username as user_username, u.phone as user_phone
+        FROM orders o
+        LEFT JOIN users u ON o.user_id = u.id
+        WHERE o.status = ? AND (o.waiter_id IS NULL OR o.waiter_id = 0)
+        ORDER BY o.created_at ASC
+      `, ['new'], (err, rows) => {
+        if (err) reject(err);
+        else resolve(rows);
+      });
+    });
+    
+    if (!orders || orders.length === 0) {
+      return res.json([]);
+    }
+    
+    // Получаем позиции для всех заказов
+    const orderIds = orders.map(o => o.id);
+    const placeholders = orderIds.map(() => '?').join(',');
+    const items = await new Promise((resolve, reject) => {
+      db.all(`
+        SELECT oi.order_id, oi.drink_id, oi.quantity, oi.price, d.name as drink_name
+        FROM order_items oi
+        LEFT JOIN drinks d ON oi.drink_id = d.id
+        WHERE oi.order_id IN (${placeholders})
+      `, orderIds, (err, rows) => {
+        if (err) reject(err);
+        else resolve(rows || []);
+      });
+    });
+    
+    // Группируем позиции по заказам
+    const itemsByOrder = {};
+    (items || []).forEach(item => {
+      if (!itemsByOrder[item.order_id]) itemsByOrder[item.order_id] = [];
+      itemsByOrder[item.order_id].push(item);
+    });
+    
+    // Формируем финальный ответ
+    const ordersWithItems = orders.map(order => {
+      const orderItems = itemsByOrder[order.id] || [];
+      const itemsText = orderItems
+        .map(item => `${item.drink_name || 'Напиток #' + item.drink_id} (x${item.quantity} - ${(item.price * item.quantity).toFixed(2)} фиш.)`)
+        .join(', ');
+      return {
+        ...order,
+        items_text: itemsText,
+        items_count: orderItems.length
+      };
+    });
+    
+    res.json(ordersWithItems);
+  } catch (error) {
+    console.error('Error fetching waiter orders:', error);
+    res.status(500).json({ error: 'Internal server error' });
+  }
+});
+
+// Получение активных заказов официанта
+app.get('/api/waiters/orders/active', async (req, res) => {
+  try {
+    const auth = req.headers.authorization || '';
+    if (!auth.startsWith('Bearer ')) {
+      return res.status(401).json({ error: 'Unauthorized' });
+    }
+    const token = auth.substring(7);
+    const jwt = require('jsonwebtoken');
+    let userId;
+    try {
+      const payload = jwt.verify(token, process.env.JWT_SECRET || 'savosbot_club_super_secret_jwt_key_2024');
+      userId = payload.id;
+    } catch (e) {
+      return res.status(401).json({ error: 'Invalid token' });
+    }
+    
+    const user = await new Promise((resolve, reject) => {
+      db.get('SELECT * FROM users WHERE id = ? AND is_waiter = 1', [userId], (err, row) => {
+        if (err) reject(err);
+        else resolve(row);
+      });
+    });
+    if (!user) return res.status(403).json({ error: 'Только официанты могут просматривать свои заказы' });
+    
+    const orders = await new Promise((resolve, reject) => {
+      db.all(`
+        SELECT o.*, u.first_name, u.last_name, u.username
+        FROM orders o
+        LEFT JOIN users u ON o.user_id = u.id
+        WHERE o.waiter_id = ? AND o.status IN ('taken', 'new')
+        ORDER BY o.created_at ASC
+      `, [userId], (err, rows) => {
+        if (err) reject(err);
+        else resolve(rows);
+      });
+    });
+    
+    res.json(orders || []);
+  } catch (error) {
+    console.error('Error fetching active orders:', error);
+    res.status(500).json({ error: 'Internal server error' });
+  }
+});
+
 // Основные команды бота
 bot.start(async (ctx) => {
   const userId = ctx.from.id;
