@@ -108,16 +108,36 @@ if (isTurso) {
     },
     serialize: (callback) => {
       // Для Turso просто выполняем callback синхронно
-      if (callback) callback();
+      // Таблицы уже инициализированы в async функции initializeTablesTurso
+      if (callback) {
+        try {
+          callback();
+        } catch (err) {
+          console.error('Error in serialize callback:', err);
+        }
+      }
     },
     close: (callback) => {
-      tursoClient.close()
-        .then(() => {
-          if (callback) callback(null);
-        })
-        .catch((err) => {
-          if (callback) callback(err);
-        });
+      if (!tursoClient || typeof tursoClient.close !== 'function') {
+        if (callback) callback(null);
+        return;
+      }
+      
+      const closeResult = tursoClient.close();
+      if (closeResult && typeof closeResult.then === 'function') {
+        // Это Promise
+        closeResult
+          .then(() => {
+            if (callback) callback(null);
+          })
+          .catch((err) => {
+            if (callback) callback(err);
+            else console.error('❌ Error closing Turso connection:', err);
+          });
+      } else {
+        // Это синхронный вызов
+        if (callback) callback(null);
+      }
     }
   };
   
