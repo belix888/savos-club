@@ -2282,29 +2282,114 @@
             }
         }
 
-        // Загрузить активные заказы официанта
+        // Загрузить активные заказы официанта (с fallback)
         async function loadWaiterActiveOrders() {
-            if (!authToken) return;
+            if (!authToken || !currentUser) return;
+
+            const activeOrdersList = document.getElementById('waiter-active-orders-list');
+            const activeOrdersSection = document.getElementById('waiter-active-orders-section');
+            
+            if (!activeOrdersList || !activeOrdersSection) {
+                console.error('❌ Элементы для активных заказов не найдены');
+                return;
+            }
 
             try {
-                const response = await fetch('/api/waiters/orders/active', {
-                    headers: {
-                        'Authorization': `Bearer ${authToken}`
-                    }
-                });
+                console.log('📋 Загрузка активных заказов официанта...');
+                let orders = [];
+                
+                // Пробуем использовать специализированный endpoint
+                try {
+                    const response = await fetch('/api/waiters/orders/active', {
+                        headers: {
+                            'Authorization': `Bearer ${authToken}`
+                        }
+                    });
 
-                if (!response.ok) {
-                    const error = await response.json();
-                    document.getElementById('waiter-active-orders-list').innerHTML = `<div class="error">${error.error || 'Ошибка загрузки активных заказов'}</div>`;
-                    return;
+                    if (response.ok) {
+                        const ordersData = await response.json();
+                        orders = Array.isArray(ordersData) ? ordersData : [];
+                        console.log('✅ Получено активных заказов через /api/waiters/orders/active:', orders.length);
+                    } else if (response.status === 404) {
+                        // Fallback: получаем все заказы и фильтруем по waiter_id
+                        console.log('⚠️ /api/waiters/orders/active недоступен, используем fallback');
+                        const fallbackResponse = await fetch('/api/orders', {
+                            headers: {
+                                'Authorization': `Bearer ${authToken}`
+                            }
+                        });
+                        
+                        if (fallbackResponse.ok) {
+                            const allOrders = await fallbackResponse.json();
+                            // Фильтруем заказы, взятые текущим официантом
+                            orders = Array.isArray(allOrders) ? allOrders.filter(order => 
+                                order.waiter_id === currentUser.id && (order.status === 'taken' || order.status === 'new')
+                            ) : [];
+                            console.log('✅ Получено активных заказов через fallback:', orders.length);
+                        } else {
+                            throw new Error('Fallback endpoint недоступен');
+                        }
+                    } else {
+                        const error = await response.json().catch(() => ({ error: 'Неизвестная ошибка' }));
+                        console.error('❌ Ошибка загрузки активных заказов:', response.status, error);
+                        activeOrdersList.innerHTML = `<div class="error" style="padding: 15px; background: rgba(239, 68, 68, 0.2); border: 1px solid #ef4444; border-radius: 10px; color: #ef4444;">${error.error || 'Ошибка загрузки активных заказов'}</div>`;
+                        activeOrdersSection.style.display = 'block';
+                        return;
+                    }
+                } catch (fetchError) {
+                    console.warn('⚠️ Ошибка при запросе к /api/waiters/orders/active, пробуем fallback:', fetchError);
+                    
+                    // Fallback
+                    try {
+                        const fallbackResponse = await fetch('/api/orders', {
+                            headers: {
+                                'Authorization': `Bearer ${authToken}`
+                            }
+                        });
+                        
+                        if (fallbackResponse.ok) {
+                            const allOrders = await fallbackResponse.json();
+                            orders = Array.isArray(allOrders) ? allOrders.filter(order => 
+                                order.waiter_id === currentUser.id && (order.status === 'taken' || order.status === 'new')
+                            ) : [];
+                            console.log('✅ Получено активных заказов через fallback:', orders.length);
+                        } else {
+                            throw fallbackResponse;
+                        }
+                    } catch (fallbackError) {
+                        console.error('❌ Ошибка fallback:', fallbackError);
+                        activeOrdersList.innerHTML = `<div class="error" style="padding: 15px; background: rgba(239, 68, 68, 0.2); border: 1px solid #ef4444; border-radius: 10px; color: #ef4444;">Ошибка загрузки активных заказов</div>`;
+                        activeOrdersSection.style.display = 'block';
+                        return;
+                    }
                 }
 
-                const orders = await response.json();
-                const activeOrdersList = document.getElementById('waiter-active-orders-list');
-                const activeOrdersSection = document.getElementById('waiter-active-orders-section');
+                // Получаем детали для заказов если нужно
+                const ordersWithDetails = await Promise.all(orders.map(async (order) => {
+                    if (!order.items_text && order.id) {
+                        try {
+                            const orderDetailResponse = await fetch(`/api/orders/${order.id}`, {
+                                headers: {
+                                    'Authorization': `Bearer ${authToken}`
+                                }
+                            });
+                            if (orderDetailResponse.ok) {
+                                const orderDetail = await orderDetailResponse.json();
+                                if (orderDetail.items && Array.isArray(orderDetail.items)) {
+                                    order.items_text = orderDetail.items.map(item => 
+                                        `${item.drink_name || 'Напиток'} (x${item.quantity} - ${(item.price * item.quantity).toFixed(2)} фиш.)`
+                                    ).join(', ');
+                                }
+                            }
+                        } catch (e) {
+                            console.warn('Не удалось получить детали заказа:', e);
+                        }
+                    }
+                    return order;
+                }));
 
-                if (!orders || orders.length === 0) {
-                    activeOrdersList.innerHTML = '<p style="text-align: center; color: rgba(255,255,255,0.7);">Нет активных заказов</p>';
+                if (!ordersWithDetails || ordersWithDetails.length === 0) {
+                    activeOrdersList.innerHTML = '<p style="text-align: center; color: rgba(255,255,255,0.7); padding: 20px;">Нет активных заказов</p>';
                     activeOrdersSection.style.display = 'block';
                     return;
                 }
