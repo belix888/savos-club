@@ -835,6 +835,7 @@
                                 authToken = savedToken;
                                 showMainApp();
                                 await Promise.all([loadEvents(), loadDrinks(), loadContests(), loadProfile(), loadOrders()]);
+                                updateWaiterTabVisibility();
                                 hideLoader();
                                 return;
                             }
@@ -955,6 +956,7 @@
                         }
                         showMainApp(); 
                         await Promise.all([loadEvents(), loadDrinks(), loadContests(), loadProfile(), loadOrders()]);
+                        updateWaiterTabVisibility();
                         hideLoader();
                     } catch (err) {
                         regError.textContent = err.message;
@@ -1019,6 +1021,7 @@
                         // Показываем основное приложение и загружаем данные
                         showMainApp();
                         await Promise.all([loadEvents(), loadDrinks(), loadContests(), loadProfile(), loadOrders()]);
+                        updateWaiterTabVisibility();
                         hideLoader();
                     } catch (err) {
                         console.error('❌ Ошибка входа:', err);
