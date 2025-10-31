@@ -2273,11 +2273,11 @@
                         <!-- Кнопки действий -->
                         <div style="display: flex; gap: 10px;">
                             ${order.status === 'new' ? `
-                                <button class="btn" onclick="takeOrder(${order.id}); document.body.removeChild(document.getElementById('waiter-order-modal'));" style="flex: 1;">
+                                <button class="btn" id="modal-take-btn-${order.id}" onclick="takeOrder(${order.id}); setTimeout(() => { const modal = document.getElementById('waiter-order-modal'); if (modal) document.body.removeChild(modal); }, 500);" style="flex: 1;">
                                     ✋ Взять в работу
                                 </button>
                             ` : order.status === 'taken' && order.waiter_id === currentUser.id ? `
-                                <button class="btn" onclick="completeOrder(${order.id}); document.body.removeChild(document.getElementById('waiter-order-modal'));" style="flex: 1; background: #22c55e;">
+                                <button class="btn" id="modal-complete-btn-${order.id}" onclick="completeOrder(${order.id});" style="flex: 1; background: #22c55e;">
                                     ✅ Завершить заказ
                                 </button>
                             ` : `
