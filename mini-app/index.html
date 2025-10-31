@@ -2301,30 +2301,80 @@
                 return;
             }
 
+            // Подтверждение завершения
+            if (!confirm('Вы уверены, что хотите завершить этот заказ?')) {
+                return;
+            }
+
+            // Блокируем кнопки во время выполнения
+            const completeBtn = document.getElementById(`complete-btn-${orderId}`);
+            const modalCompleteBtn = document.getElementById(`modal-complete-btn-${orderId}`);
+            const buttonsToBlock = [completeBtn, modalCompleteBtn].filter(btn => btn !== null);
+            
+            buttonsToBlock.forEach(btn => {
+                btn.disabled = true;
+                btn.textContent = '⏳ Завершение...';
+            });
+
             try {
+                console.log('✅ Завершение заказа #' + orderId + '...');
                 const response = await fetch(`/api/orders/${orderId}/complete`, {
                     method: 'POST',
                     headers: {
-                        'Authorization': `Bearer ${authToken}`
+                        'Authorization': `Bearer ${authToken}`,
+                        'Content-Type': 'application/json'
                     }
                 });
 
                 const data = await response.json();
+                console.log('📥 Ответ от сервера при завершении:', data);
+
                 if (response.ok) {
                     // Уведомление о завершении заказа
                     if (tg && tg.HapticFeedback && tg.HapticFeedback.notificationOccurred) {
                         tg.HapticFeedback.notificationOccurred('success');
                     }
-                    console.log('✅ Заказ завершен');
-                    loadWaiterOrders();
-                    // Обновляем список активных заказов
-                    loadWaiterActiveOrders();
+                    
+                    console.log('✅ Заказ #' + orderId + ' успешно завершен');
+                    
+                    // Обновляем список активных заказов (убираем завершенный заказ)
+                    await loadWaiterActiveOrders();
+                    
+                    // Обновляем список доступных заказов (на случай, если есть новые)
+                    await loadWaiterOrders();
+                    
+                    // Закрываем модалку, если открыта
+                    const modal = document.getElementById('waiter-order-modal');
+                    if (modal) {
+                        document.body.removeChild(modal);
+                    }
+                    
+                    console.log('✅ Списки заказов обновлены после завершения');
                 } else {
+                    console.error('❌ Ошибка завершения заказа:', response.status, data);
+                    
+                    // Разблокируем кнопки
+                    buttonsToBlock.forEach(btn => {
+                        if (btn) {
+                            btn.disabled = false;
+                            btn.innerHTML = '✅ Завершить заказ';
+                        }
+                    });
+                    
                     showError(data.error || 'Ошибка завершения заказа');
                 }
             } catch (error) {
-                console.error('Ошибка завершения заказа:', error);
-                showError('Ошибка завершения заказа');
+                console.error('❌ Ошибка при завершении заказа:', error);
+                
+                // Разблокируем кнопки
+                buttonsToBlock.forEach(btn => {
+                    if (btn) {
+                        btn.disabled = false;
+                        btn.innerHTML = '✅ Завершить заказ';
+                    }
+                });
+                
+                showError('Ошибка завершения заказа: ' + (error.message || 'Неизвестная ошибка'));
             }
         }
 
