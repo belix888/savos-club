@@ -2112,9 +2112,11 @@ app.post('/api/waiters/shift/end', (req, res) => {
 
 // Получение заказов для официанта на смене
 app.get('/api/waiters/orders', (req, res) => {
+  console.log('📋 GET /api/waiters/orders - запрос получен');
   try {
     const auth = req.headers.authorization || '';
     if (!auth.startsWith('Bearer ')) {
+      console.log('⚠️ Нет токена авторизации');
       return res.status(401).json({ error: 'Unauthorized' });
     }
     
@@ -2724,9 +2726,11 @@ app.use((err, req, res, next) => {
   res.status(500).json({ error: 'Something went wrong!' });
 });
 
-// 404 handler
+// 404 handler (должен быть ПОСЛЕДНИМ)
 app.use((req, res) => {
-  res.status(404).json({ error: 'Not found' });
+  console.log(`⚠️ 404 - Route not found: ${req.method} ${req.path || req.url}`);
+  console.log(`   Headers:`, JSON.stringify(req.headers, null, 2));
+  res.status(404).json({ error: 'Not found', path: req.path || req.url, method: req.method });
 });
 
 module.exports = app;
