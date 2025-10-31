@@ -778,9 +778,23 @@
                 const savedToken = localStorage.getItem('miniapp_token');
                 if (savedToken) {
                     try {
+                        // Пробуем восстановить данные пользователя из кеша для быстрой загрузки
+                        try {
+                            const cachedUser = localStorage.getItem('currentUserCache');
+                            if (cachedUser) {
+                                const parsedCache = JSON.parse(cachedUser);
+                                if (parsedCache && parsedCache.id) {
+                                    currentUser = parsedCache;
+                                    console.log('✅ Restored user from cache');
+                                }
+                            }
+                        } catch (cacheErr) {
+                            console.warn('Could not restore from cache:', cacheErr);
+                        }
+                        
                         const me = await fetch('/api/session', { 
                             headers: { 'Authorization': `Bearer ${savedToken}` },
-                            timeout: 5000
+                            timeout: 10000
                         }).catch(() => null);
                         
                         if (me && me.ok) {
@@ -788,6 +802,14 @@
                             if (data && data.user) {
                                 authToken = savedToken;
                                 currentUser = data.user;
+                                
+                                // Сохраняем актуальные данные пользователя в кеш
+                                try {
+                                    localStorage.setItem('currentUserCache', JSON.stringify(currentUser));
+                                } catch (e) {
+                                    console.warn('Could not cache user data:', e);
+                                }
+                                
                                 showMainApp();
                                 await Promise.all([loadEvents(), loadDrinks(), loadContests(), loadProfile(), loadOrders()]);
                                 if (currentUser && currentUser.is_waiter) {
@@ -798,27 +820,32 @@
                             }
                         }
                         
-                        // Только если это именно ошибка авторизации (401/403), а не сеть - удаляем токен
+                        // Только если это именно ошибка авторизации (401/403), а не сеть - удаляем токен и кеш
                         if (me && (me.status === 401 || me.status === 403)) {
                             console.log('⚠️ Token expired or invalid, removing...');
                             localStorage.removeItem('miniapp_token');
+                            localStorage.removeItem('currentUserCache');
                         } else if (!me) {
-                            // Сетевая ошибка - сохраняем токен и пробуем продолжить
-                            console.log('⚠️ Network error, keeping token');
+                            // Сетевая ошибка - используем кешированные данные если есть
+                            console.log('⚠️ Network error, using cached data if available');
+                            if (currentUser && currentUser.id) {
+                                authToken = savedToken;
+                                showMainApp();
+                                await Promise.all([loadEvents(), loadDrinks(), loadContests(), loadProfile(), loadOrders()]);
+                                hideLoader();
+                                return;
+                            }
+                        }
+                    } catch (err) {
+                        console.error('Session check error:', err);
+                        // При ошибке сети используем кеш если есть
+                        if (currentUser && currentUser.id) {
                             authToken = savedToken;
                             showMainApp();
                             await Promise.all([loadEvents(), loadDrinks(), loadContests(), loadProfile(), loadOrders()]);
                             hideLoader();
                             return;
                         }
-                    } catch (err) {
-                        console.error('Session check error:', err);
-                        // При ошибке сети сохраняем токен
-                        authToken = savedToken;
-                        showMainApp();
-                        await Promise.all([loadEvents(), loadDrinks(), loadContests(), loadProfile(), loadOrders()]);
-                        hideLoader();
-                        return;
                     }
                 }
 
@@ -841,6 +868,12 @@
                             authToken = authData.token;
                             currentUser = authData.user;
                             localStorage.setItem('miniapp_token', authToken);
+                            // Сохраняем данные пользователя в кеш
+                            try {
+                                localStorage.setItem('currentUserCache', JSON.stringify(currentUser));
+                            } catch (e) {
+                                console.warn('Could not cache user data:', e);
+                            }
                             showMainApp();
                             await Promise.all([loadEvents(), loadDrinks(), loadContests(), loadProfile(), loadOrders()]);
                             hideLoader();
@@ -908,8 +941,17 @@
                         const lr = await fetch('/api/login', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ username: payload.username, phone: payload.phone })});
                         const ld = await lr.json();
                         if (!lr.ok) throw new Error(ld.error || 'Ошибка входа');
-                        authToken = ld.token; currentUser = ld.user; localStorage.setItem('miniapp_token', authToken);
-                        showMainApp(); await Promise.all([loadEvents(), loadDrinks(), loadContests(), loadProfile(), loadOrders()]);
+                        authToken = ld.token; 
+                        currentUser = ld.user; 
+                        localStorage.setItem('miniapp_token', authToken);
+                        // Сохраняем данные пользователя в кеш
+                        try {
+                            localStorage.setItem('currentUserCache', JSON.stringify(currentUser));
+                        } catch (e) {
+                            console.warn('Could not cache user data:', e);
+                        }
+                        showMainApp(); 
+                        await Promise.all([loadEvents(), loadDrinks(), loadContests(), loadProfile(), loadOrders()]);
                         hideLoader();
                     } catch (err) {
                         regError.textContent = err.message;
@@ -1152,15 +1194,24 @@
                     };
                 });
                 
-                // Проверяем баланс
+                // Проверяем баланс фишек
                 const userChips = parseFloat(currentUser?.chips || 0);
                 if (userChips < totalAmount) {
-                    const errorMsg = `Недостаточно фишек!\n\nУ вас: ${userChips.toFixed(2)} фиш.\nТребуется: ${totalAmount.toFixed(2)} фиш.\nНе хватает: ${(totalAmount - userChips).toFixed(2)} фиш.`;
+                    const missing = (totalAmount - userChips).toFixed(2);
+                    const errorMsg = `❌ Недостаточно фишек для оформления заказа!\n\n💎 У вас на балансе: ${userChips.toFixed(2)} фиш.\n💰 Стоимость заказа: ${totalAmount.toFixed(2)} фиш.\n⚠️ Не хватает: ${missing} фиш.\n\n💡 Обратитесь к администратору для пополнения баланса.`;
+                    
+                    // Показываем визуальное уведомление
+                    showError(`Недостаточно фишек! Не хватает: ${missing} фиш.`);
+                    
+                    // Также показываем через Telegram API если доступно
                     if (tg && tg.showAlert) {
                         tg.showAlert(errorMsg);
                     } else {
                         alert(errorMsg);
                     }
+                    
+                    // Обновляем профиль чтобы показать актуальный баланс
+                    loadProfile();
                     return;
                 }
                 
@@ -1183,10 +1234,20 @@
                 if (response.ok) {
                     const orderData = await response.json();
                     
-                    // Обновляем баланс фишек пользователя
+                    // Обновляем баланс фишек пользователя сразу в объекте currentUser
                     if (orderData.new_balance !== undefined && currentUser) {
-                        currentUser.chips = orderData.new_balance;
+                        currentUser.chips = parseFloat(orderData.new_balance);
                         console.log('✅ Баланс фишек обновлен:', orderData.new_balance);
+                        
+                        // Сохраняем обновленные данные пользователя в localStorage для восстановления
+                        try {
+                            localStorage.setItem('currentUserCache', JSON.stringify({
+                                ...currentUser,
+                                chips: currentUser.chips
+                            }));
+                        } catch (e) {
+                            console.warn('Could not cache user data:', e);
+                        }
                     }
                     
                     // Добавляем заказ в историю
@@ -1197,7 +1258,8 @@
                     updateCartSummary();
                     loadDrinks();
                     loadOrders();
-                    loadProfile();
+                    // Обновляем профиль для отображения нового баланса
+                    await loadProfile();
                     
                     // Показываем уведомление с информацией о списанных фишках
                     const message = `✅ Заказ успешно оформлен!\n\nСписано: ${orderData.total_amount} фиш.\n${orderData.new_balance !== undefined ? `Остаток: ${orderData.new_balance.toFixed(2)} фиш.` : ''}\n\nОфициант скоро подойдет к вашему столику.\nКод подтверждения: ${orderData.confirmation_code}`;
