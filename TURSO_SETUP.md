@@ -23,10 +23,16 @@
 **Альтернативный способ (если хотите добавить вручную):**
 Зайдите в Vercel Dashboard:
 - Проект → Settings → Environment Variables
-- Добавьте следующие переменные:
+- Добавьте следующие переменные (с префиксом `turso_` как создает Vercel):
 
 ```
-TURSO_URL=libsql://database-purple-flower-vercel-icfg-ihebhpwvlvjhg5nmjrw99a4o.aws-us-east-1.turso.io
+turso_TURSO_DATABASE_URL=libsql://database-purple-flower-vercel-icfg-ihebhpwvlvjhg5nmjrw99a4o.aws-us-east-1.turso.io
+turso_TURSO_AUTH_TOKEN=eyJhbGciOiJFZERTQSIsInR5cCI6IkpXVCJ9.eyJpYXQiOjE3NjE5MDIyNjEsImlkIjoiZDI0YzlmYjgtZDY4OC00MDY4LThjMTItMTEwOWQzN2FmNTNjIiwicmlkIjoiNTI4NjNkNzItMjQ0Mi00MDJjLThmZDItZWQ1MzM3YjQ1OTBhIn0.91A4W-uIsVhaO8CX2CHdmxBwTLLbJKjdk7Az6T5AVnNFzdUrJb84A6Ne2h50AWdguM4Kl7F0FBVZ0WEOiYuhCA
+```
+
+**Или без префикса (стандартные имена):**
+```
+TURSO_DATABASE_URL=libsql://database-purple-flower-vercel-icfg-ihebhpwvlvjhg5nmjrw99a4o.aws-us-east-1.turso.io
 TURSO_AUTH_TOKEN=eyJhbGciOiJFZERTQSIsInR5cCI6IkpXVCJ9.eyJpYXQiOjE3NjE5MDIyNjEsImlkIjoiZDI0YzlmYjgtZDY4OC00MDY4LThjMTItMTEwOWQzN2FmNTNjIiwicmlkIjoiNTI4NjNkNzItMjQ0Mi00MDJjLThmZDItZWQ1MzM3YjQ1OTBhIn0.91A4W-uIsVhaO8CX2CHdmxBwTLLbJKjdk7Az6T5AVnNFzdUrJb84A6Ne2h50AWdguM4Kl7F0FBVZ0WEOiYuhCA
 ```
 
@@ -43,7 +49,10 @@ TURSO_AUTH_TOKEN=eyJhbGciOiJFZERTQSIsInR5cCI6IkpXVCJ9.eyJpYXQiOjE3NjE5MDIyNjEsIm
 
 ## 🔄 Как это работает:
 
-1. **Автоматическое определение**: Код проверяет наличие `TURSO_URL` (или `TURSO_DATABASE_URL`) и `TURSO_AUTH_TOKEN`
+1. **Автоматическое определение**: Код проверяет наличие переменных в следующем порядке:
+   - `TURSO_URL` или `TURSO_DATABASE_URL` (стандартные)
+   - `turso_TURSO_URL` или `turso_TURSO_DATABASE_URL` (с префиксом от Vercel)
+   - `TURSO_AUTH_TOKEN` или `turso_TURSO_AUTH_TOKEN`
 2. **Turso режим**: Если переменные есть → используется Turso (libSQL)
 3. **SQLite режим**: Если переменных нет → используется локальный SQLite
 4. **Совместимость API**: Адаптер обеспечивает совместимость с существующим кодом
