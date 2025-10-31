@@ -1441,7 +1441,27 @@
                     return;
                 }
                 
-                const user = currentUser;
+                // Получаем актуальные данные пользователя из API, если доступно
+                let user = currentUser;
+                try {
+                    const response = await fetch('/api/session', {
+                        headers: { 'Authorization': `Bearer ${authToken}` }
+                    });
+                    if (response.ok) {
+                        const data = await response.json();
+                        if (data && data.user) {
+                            user = data.user;
+                            // Обновляем currentUser
+                            currentUser.is_waiter = user.is_waiter;
+                            currentUser.is_resident = user.is_resident;
+                            currentUser.is_admin = user.is_admin;
+                            currentUser.chips = user.chips;
+                        }
+                    }
+                } catch (e) {
+                    console.warn('Could not refresh user data, using cached:', e);
+                    // Используем кешированные данные
+                }
                 
                 // Загружаем реальные данные из БД
                 const [bookingsRes, contestsRes] = await Promise.all([
@@ -1505,6 +1525,19 @@
                             </span>
                         </div>
                         
+                        ${user.is_waiter ? `
+                        <div class="profile-item" style="margin-top: 15px;">
+                            <div style="padding: 15px; background: linear-gradient(135deg, rgba(239, 68, 68, 0.15), rgba(220, 38, 38, 0.15)); border: 2px solid #ef4444; border-radius: 12px; text-align: center;">
+                                <div style="font-size: 20px; margin-bottom: 8px;">🍽️</div>
+                                <div style="font-weight: 600; color: #ef4444; font-size: 16px; margin-bottom: 5px;">Вы - Официант</div>
+                                <div style="font-size: 12px; color: rgba(255,255,255,0.8); margin-bottom: 10px;">Доступ к панели официанта</div>
+                                <button class="btn" onclick="window.switchTab('waiter')" style="width: 100%; margin-top: 5px; font-size: 14px; padding: 8px;">
+                                    Перейти к панели официанта
+                                </button>
+                            </div>
+                        </div>
+                        ` : ''}
+                        
                         <div style="margin-top: 20px; padding-top: 20px; border-top: 2px solid rgba(255,255,255,0.2);">
                             <h4 style="color: #ef4444; margin-bottom: 15px;">📊 Ваша активность</h4>
                             
@@ -1542,6 +1575,20 @@
                     </div>
                 `;
                 
+                // Обновляем данные пользователя в currentUser если они изменились
+                if (currentUser && currentUser.id === user.id) {
+                    currentUser.is_waiter = user.is_waiter;
+                    currentUser.is_resident = user.is_resident;
+                    currentUser.is_admin = user.is_admin;
+                    currentUser.chips = user.chips;
+                    // Обновляем кеш
+                    try {
+                        localStorage.setItem('currentUserCache', JSON.stringify(currentUser));
+                    } catch (e) {
+                        console.warn('Could not update user cache:', e);
+                    }
+                }
+                
                 // Обновляем видимость вкладки официанта
                 updateWaiterTabVisibility();
                 
@@ -1552,6 +1599,42 @@
             } catch (error) {
                 console.error('Ошибка загрузки профиля:', error);
                 document.getElementById('profile-info').innerHTML = '<div class="error">Ошибка загрузки профиля</div>';
+            }
+        }
+
+        // Функция обновления данных пользователя из API
+        async function refreshUserData() {
+            if (!authToken || !currentUser) {
+                return;
+            }
+            
+            try {
+                const response = await fetch('/api/session', {
+                    headers: { 'Authorization': `Bearer ${authToken}` }
+                });
+                
+                if (response.ok) {
+                    const data = await response.json();
+                    if (data && data.user) {
+                        const wasWaiter = currentUser.is_waiter;
+                        currentUser = data.user;
+                        
+                        // Обновляем кеш
+                        try {
+                            localStorage.setItem('currentUserCache', JSON.stringify(currentUser));
+                        } catch (e) {
+                            console.warn('Could not update user cache:', e);
+                        }
+                        
+                        // Если статус официанта изменился, обновляем профиль и вкладки
+                        if (wasWaiter !== currentUser.is_waiter) {
+                            updateWaiterTabVisibility();
+                            loadProfile();
+                        }
+                    }
+                }
+            } catch (error) {
+                console.error('Ошибка обновления данных пользователя:', error);
             }
         }
 
@@ -2086,6 +2169,11 @@
                 }
             }
             
+            // Если переключаемся на профиль, обновляем данные пользователя
+            if (tabName === 'profile') {
+                await refreshUserData();
+            }
+            
             // Убираем активный класс со всех вкладок и контента
             document.querySelectorAll('.nav-tab').forEach(tab => tab.classList.remove('active'));
             document.querySelectorAll('.tab-content').forEach(content => content.classList.remove('active'));
@@ -2096,7 +2184,16 @@
             
             if (tab) tab.classList.add('active');
             if (content) content.classList.add('active');
+            
+            // Если переключаемся на waiter, загружаем данные для официанта
+            if (tabName === 'waiter' && currentUser && currentUser.is_waiter) {
+                checkWaiterShift();
+                loadWaiterOrders();
+            }
         }
+        
+        // Делаем функцию глобально доступной
+        window.switchTab = switchTab;
 
         // Обработчики событий
         document.querySelectorAll('.nav-tab').forEach(tab => {
@@ -2105,8 +2202,23 @@
             });
         });
 
+        // Периодическое обновление данных пользователя (каждую минуту)
+        let userDataRefreshInterval = null;
+        function startUserDataAutoRefresh() {
+            if (userDataRefreshInterval) clearInterval(userDataRefreshInterval);
+            userDataRefreshInterval = setInterval(() => {
+                if (authToken && currentUser) {
+                    refreshUserData();
+                }
+            }, 60000); // 60 секунд
+        }
+
         // Инициализация при загрузке
-        document.addEventListener('DOMContentLoaded', initApp);
+        document.addEventListener('DOMContentLoaded', () => {
+            initApp();
+            // Запускаем автообновление данных пользователя
+            startUserDataAutoRefresh();
+        });
     </script>
 </body>
 </html>
