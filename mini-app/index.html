@@ -1848,9 +1848,13 @@
 
         // Загрузить заказы для официанта
         async function loadWaiterOrders() {
-            if (!authToken) return;
+            if (!authToken) {
+                console.warn('⚠️ Нет токена авторизации');
+                return;
+            }
 
             try {
+                console.log('📋 Загрузка новых заказов для официанта...');
                 const response = await fetch('/api/waiters/orders', {
                     headers: {
                         'Authorization': `Bearer ${authToken}`
@@ -1858,20 +1862,45 @@
                 });
 
                 if (!response.ok) {
-                    const error = await response.json();
-                    document.getElementById('waiter-orders-list').innerHTML = `<div class="error">${error.error || 'Ошибка загрузки заказов'}</div>`;
+                    const error = await response.json().catch(() => ({ error: 'Неизвестная ошибка' }));
+                    console.error('❌ Ошибка загрузки заказов:', response.status, error);
+                    
+                    // Показываем более понятное сообщение об ошибке
+                    let errorMessage = error.error || 'Ошибка загрузки заказов';
+                    if (response.status === 400 && errorMessage.includes('смен')) {
+                        errorMessage = '⚠️ ' + errorMessage;
+                    }
+                    
+                    document.getElementById('waiter-orders-list').innerHTML = `<div style="padding: 15px; background: rgba(239, 68, 68, 0.2); border: 1px solid #ef4444; border-radius: 10px; color: #ef4444; text-align: center;">${errorMessage}</div>`;
                     return;
                 }
 
-                const orders = await response.json();
+                const ordersData = await response.json();
+                console.log('✅ Получено заказов:', ordersData);
+                
+                // Убеждаемся, что это массив
+                const orders = Array.isArray(ordersData) ? ordersData : [];
+                console.log('📦 Массив заказов:', orders.length, orders);
+                
                 const ordersList = document.getElementById('waiter-orders-list');
-
-                if (!orders || orders.length === 0) {
-                    ordersList.innerHTML = '<p style="text-align: center; color: rgba(255,255,255,0.7);">Нет новых заказов</p>';
+                
+                if (!ordersList) {
+                    console.error('❌ Элемент waiter-orders-list не найден');
                     return;
                 }
 
-                ordersList.innerHTML = orders.map(order => `
+                if (orders.length === 0) {
+                    ordersList.innerHTML = '<p style="text-align: center; color: rgba(255,255,255,0.7); padding: 20px;">📭 Нет новых заказов</p>';
+                    return;
+                }
+
+                console.log('🎨 Рендерим заказы:', orders.length);
+                ordersList.innerHTML = orders.map(order => {
+                    if (!order || !order.id) {
+                        console.warn('⚠️ Некорректный заказ:', order);
+                        return '';
+                    }
+                    return `
                     <div class="order-card" style="background: rgba(255,255,255,0.05); padding: 15px; border-radius: 12px; margin-bottom: 15px; cursor: pointer;" onclick="openWaiterOrderModal(${order.id})">
                         <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px;">
                             <div>

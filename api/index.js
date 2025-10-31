@@ -2174,8 +2174,10 @@ app.get('/api/waiters/orders', (req, res) => {
             return res.status(500).json({ error: 'Database error' });
           }
           
+          console.log(`📋 Найдено новых заказов для официанта ${userId}:`, orders ? orders.length : 0);
+          
           // Получаем детали позиций для каждого заказа
-          const ordersWithItems = orders.map(order => {
+          const ordersWithItems = (orders || []).map(order => {
             return {
               ...order,
               items_text: order.items_text || '',
@@ -2183,7 +2185,8 @@ app.get('/api/waiters/orders', (req, res) => {
             };
           });
           
-          res.json(ordersWithItems || []);
+          console.log('✅ Возвращаем заказы:', ordersWithItems.length);
+          res.json(ordersWithItems);
         });
       });
     });
