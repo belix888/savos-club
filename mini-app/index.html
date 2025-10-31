@@ -2396,8 +2396,12 @@
             });
         }
         
-        // Настраиваем обработчики при загрузке
-        setupTabHandlers();
+        // Настраиваем обработчики при загрузке DOM
+        if (document.readyState === 'loading') {
+            document.addEventListener('DOMContentLoaded', setupTabHandlers);
+        } else {
+            setupTabHandlers();
+        }
 
         // Периодическое обновление данных пользователя (каждую минуту)
         let userDataRefreshInterval = null;
