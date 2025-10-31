@@ -2147,8 +2147,9 @@ app.get('/api/waiters/orders', (req, res) => {
             return res.status(400).json({ error: 'Ваша смена завершена. Начните новую смену, чтобы получать заказы.' });
           }
           
-          // Получаем заказы со статусом 'new' (новые, не взятые в работу)
-        const query = `
+          // Получаем все заказы со статусом 'new', которые еще не взяты никаким официантом
+          // Это включает заказы, созданные до начала текущей смены
+          const query = `
           SELECT 
             o.*,
             u.first_name as user_first_name,
@@ -2163,7 +2164,7 @@ app.get('/api/waiters/orders', (req, res) => {
           JOIN users u ON o.user_id = u.id
           LEFT JOIN order_items oi ON o.id = oi.order_id
           LEFT JOIN drinks d ON oi.drink_id = d.id
-          WHERE o.status = 'new'
+          WHERE o.status = 'new' AND (o.waiter_id IS NULL OR o.waiter_id = 0)
           GROUP BY o.id
           ORDER BY o.created_at ASC
         `;
