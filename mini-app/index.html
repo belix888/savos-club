@@ -2394,7 +2394,7 @@
                     return;
                 }
 
-                activeOrdersList.innerHTML = orders.map(order => `
+                activeOrdersList.innerHTML = ordersWithDetails.map(order => `
                     <div class="order-card" style="background: rgba(34,197,94,0.1); padding: 15px; border-radius: 12px; margin-bottom: 15px; border: 1px solid rgba(34,197,94,0.3); cursor: pointer;" onclick="openWaiterOrderModal(${order.id})">
                         <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px;">
                             <div>
