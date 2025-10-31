@@ -2387,8 +2387,8 @@ app.post('/api/orders/:id/complete', (req, res) => {
               }
             );
           });
-          });
-    });
+        });
+      });
   } catch (error) {
     console.error('❌ Error completing order:', error);
     res.status(500).json({ error: 'Internal server error' });
