@@ -916,13 +916,29 @@
             try {
                 const response = await fetch('/api/users');
                 const users = await response.json();
-                // Сохраняем в память для последующего редактирования
+                
+                // Определяем роль на основе флагов
+                const getUserRole = (user) => {
+                    if (user.is_super_admin) return 'SuperAdmin';
+                    if (user.is_admin) return 'Admin';
+                    if (user.is_waiter) return 'Waiter';
+                    if (user.is_resident) return 'Resident';
+                    return 'User';
+                };
+                
+                // Сохраняем в память для последующего редактирования с правильными ролями
                 usersData = Array.isArray(users) ? users.map(u => ({
                     id: u.id,
                     name: `${u.first_name || ''} ${u.last_name || ''}`.trim() || (u.name || ''),
-                    role: u.role || 'User',
+                    role: getUserRole(u),
                     status: u.status || 'Active',
-                    username: u.username || ''
+                    username: u.username || '',
+                    is_admin: u.is_admin || false,
+                    is_resident: u.is_resident || false,
+                    is_waiter: u.is_waiter || false,
+                    is_super_admin: u.is_super_admin || false,
+                    is_bartender: u.is_bartender || false,
+                    chips: u.chips || 0
                 })) : [];
                 
                 const usersList = document.getElementById('users-list');
@@ -931,13 +947,26 @@
                     return;
                 }
                 
-                usersList.innerHTML = users.map(user => `
+                // Маппинг ролей для отображения
+                const roleNames = {
+                    'User': 'Пользователь',
+                    'Resident': 'Резидент',
+                    'Waiter': 'Официант',
+                    'Admin': 'Администратор',
+                    'SuperAdmin': 'Супер-администратор'
+                };
+                
+                usersList.innerHTML = users.map(user => {
+                    const role = getUserRole(user);
+                    return `
                     <div style="padding: 15px; background: rgba(255,255,255,0.05); border-radius: 10px; margin-bottom: 10px;">
                         <div style="font-weight: 600; color: #ef4444; margin-bottom: 5px;">${user.first_name} ${user.last_name || ''}</div>
                         <div style="color: rgba(255,255,255,0.7); font-size: 14px;">@${user.username || 'нет username'}</div>
+                        <div style="color: rgba(255,255,255,0.8); font-size: 14px; margin-top: 5px;">Роль: ${roleNames[role] || role}</div>
                         <button onclick="editUser(${user.id})" style="margin-top: 10px; padding: 8px 15px; background: #ef4444; border: none; border-radius: 8px; color: white; cursor: pointer;">Редактировать</button>
                     </div>
-                `).join('');
+                `;
+                }).join('');
             } catch (error) {
                 console.error('Ошибка загрузки пользователей:', error);
                 document.getElementById('users-list').innerHTML = '<div class="error">Ошибка загрузки пользователей</div>';
@@ -1770,11 +1799,13 @@
                             };
                             showToast('success', 'Изменения сохранены', `${userName} теперь ${roleNames[userRole] || 'Пользователь'}`);
                             closeEditUserModal();
-                            // Обновляем список
-                            await loadUsers();
-                            if (document.getElementById('super-users')) {
-                                await loadSuperUsers();
-                            }
+                            // Обновляем список пользователей с небольшой задержкой для гарантии обновления в БД
+                            setTimeout(async () => {
+                                await loadUsers();
+                                if (document.getElementById('super-users')) {
+                                    await loadSuperUsers();
+                                }
+                            }, 500);
                         } else {
                             const d = await res.json().catch(()=>({error:'Ошибка сохранения'}));
                             showToast('error', 'Ошибка', d.error || 'Не удалось сохранить пользователя');
