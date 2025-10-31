@@ -260,6 +260,8 @@
             border-radius: 15px;
             width: 90%;
             max-width: 600px;
+            max-height: 90vh;
+            overflow-y: auto;
             border: 1px solid rgba(255, 255, 255, 0.2);
             box-shadow: 0 10px 40px rgba(0, 0, 0, 0.5);
         }
@@ -670,19 +672,6 @@
                     <input type="text" id="edit-user-username" readonly style="background: rgba(255,255,255,0.05);">
                 </div>
                 <div class="form-group">
-                    <label>Телефон</label>
-                    <input type="text" id="edit-user-phone" readonly style="background: rgba(255,255,255,0.05);">
-                </div>
-                <div class="form-group">
-                    <label>Ссылка на профиль</label>
-                    <input type="text" id="edit-user-profile-link" readonly style="background: rgba(255,255,255,0.05);">
-                </div>
-                <div class="form-group">
-                    <label>Фото профиля</label>
-                    <div id="edit-user-photo-preview" style="text-align: center; margin-top: 10px;"></div>
-                    <input type="text" id="edit-user-photo-url" readonly style="background: rgba(255,255,255,0.05); margin-top: 10px;">
-                </div>
-                <div class="form-group">
                     <label style="font-weight: 600; font-size: 16px; margin-bottom: 10px; display: block;">🎭 Роль пользователя</label>
                     <select id="edit-user-role" required style="padding: 12px; font-size: 15px; font-weight: 500;">
                         <option value="User">👤 Пользователь (обычный пользователь)</option>
@@ -701,6 +690,19 @@
                             • <strong>Супер-администратор</strong> - полный доступ ко всем функциям системы
                         </div>
                     </div>
+                </div>
+                <div class="form-group">
+                    <label>Телефон</label>
+                    <input type="text" id="edit-user-phone" readonly style="background: rgba(255,255,255,0.05);">
+                </div>
+                <div class="form-group">
+                    <label>Ссылка на профиль</label>
+                    <input type="text" id="edit-user-profile-link" readonly style="background: rgba(255,255,255,0.05);">
+                </div>
+                <div class="form-group">
+                    <label>Фото профиля</label>
+                    <div id="edit-user-photo-preview" style="text-align: center; margin-top: 10px;"></div>
+                    <input type="text" id="edit-user-photo-url" readonly style="background: rgba(255,255,255,0.05); margin-top: 10px;">
                 </div>
                 <div class="form-group">
                     <label>Статус</label>
