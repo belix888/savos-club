@@ -1038,6 +1038,8 @@
         function showMainApp(){
             document.getElementById('registrationContainer').style.display = 'none';
             document.getElementById('mainApp').style.display = 'block';
+            // Настраиваем обработчики вкладок после показа приложения
+            setTimeout(() => setupTabHandlers(), 100);
         }
 
         function showLoader(){ const l = document.getElementById('app-loader'); if (l) l.style.display = 'flex'; }
